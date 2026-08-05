@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Lean
+.lake/
+leanpkg.path
+*.olean
+
+# Environments and secrets
+.env
+.env.*
+*.pem
+*.key
+!*.example
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Local scratch
+tmp/
+artifacts/local/
+*.log

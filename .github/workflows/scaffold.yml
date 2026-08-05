@@ -1,0 +1,47 @@
+name: scaffold
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  scaffold-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert required governance files exist
+        run: |
+          for f in LICENSE README.md SECURITY.md CONTRIBUTING.md .gitignore \
+                   pyproject.toml .github/CODEOWNERS; do
+            test -f "$f" || { echo "missing required file: $f"; exit 1; }
+          done
+
+      - name: Assert LICENSE is Apache-2.0
+        run: |
+          grep -q "Apache License" LICENSE || { echo "LICENSE is not Apache-2.0"; exit 1; }
+          grep -q "Version 2.0" LICENSE || { echo "LICENSE is not Apache-2.0"; exit 1; }
+
+      - name: Assert CODEOWNERS lists only the authorized contributor
+        run: |
+          grep -q '^\* @Bonorinoa$' .github/CODEOWNERS || { echo "CODEOWNERS content invalid"; exit 1; }
+
+      - name: Assert no v3 artifacts or codebase-memory imported
+        run: |
+          test ! -d .codebase-memory || { echo ".codebase-memory must not be imported"; exit 1; }
+          test ! -e leanecon_v3 || { echo "v3 checkout must not be committed"; exit 1; }
+
+      - name: Validate pyproject.toml parses
+        run: |
+          python3 -c "import tomllib; tomllib.load(open('pyproject.toml','rb')); print('pyproject OK')"
+
+      - name: Assert no obvious credential patterns in tracked files
+        run: |
+          if grep -rInE '(ghp_[A-Za-z0-9]{20,}|github_pat_|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|api[_-]?key[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"']{8,})' \
+                --exclude-dir=.git .; then
+            echo "possible credential pattern detected"; exit 1
+          fi
+          echo "no credential patterns found"

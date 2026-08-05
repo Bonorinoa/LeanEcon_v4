@@ -1,0 +1,8 @@
+# CODEOWNERS
+
+# Authorized contributors for the LeanEcon_v4 repository.
+# The second authorized-contributor slot is reserved for the LeanEcon
+# collaboration bot account (to be created); until then, @Bonorinoa is the
+# sole authorized contributor and semantic approver.
+
+* @Bonorinoa
