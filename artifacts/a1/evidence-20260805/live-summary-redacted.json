@@ -1,0 +1,47 @@
+{
+  "run_id": "a1-33345b32d37e",
+  "emitted_at": "2026-08-05T04:07:57Z",
+  "criteria": {
+    "C1_pinned_lean_mathlib_build": {
+      "status": "HEALTHY",
+      "reason_code": null
+    },
+    "C2_lean_compiler_probe": {
+      "status": "HEALTHY",
+      "reason_code": null
+    },
+    "C3_lsp_probe": {
+      "status": "HEALTHY",
+      "reason_code": null
+    },
+    "C9_invalid_lean_typed_failure": {
+      "status": "HEALTHY",
+      "reason_code": "LEAN_SYNTAX_ERROR"
+    },
+    "C8_gold_isolation": {
+      "status": "HEALTHY",
+      "reason_code": null
+    },
+    "C10_provider_failure_typed": {
+      "status": "HEALTHY",
+      "reason_code": null
+    },
+    "C4_formalization_structured_output": {
+      "status": "HEALTHY",
+      "reason_code": null
+    },
+    "C5_interpretation_schema": {
+      "status": "HEALTHY",
+      "reason_code": null
+    },
+    "C6_provider_metadata": {
+      "status": "HEALTHY",
+      "reason_code": null
+    },
+    "C7_machine_readable_events": {
+      "status": "HEALTHY",
+      "reason_code": null
+    }
+  },
+  "all_green": true
+}

@@ -1,0 +1,27 @@
+name: a1
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  a1-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package with dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run acceptance tests
+        run: python -m pytest -v
+
+      - name: Assert runner imports cleanly (no workspace required)
+        run: python -c "import leanecon.a1_runner; print('a1 runner import OK')"

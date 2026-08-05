@@ -50,9 +50,15 @@ A3 proceeds only when A1 is fully green. B2 proceeds only when A3 is sound.
 
 ## Repository status
 
-Initial governance scaffold only. No contracts or implementation code exist yet;
-they are added behind the approved gate sequence (Gate 3+ of the migration
-plan).
+- **Gate 2** complete: governance scaffold (this branch baseline).
+- **Gate 3** closed: contracts, migration ledger, and trust boundaries —
+  see [`docs/gate3/`](docs/gate3/) (review package) and
+  [`references/gate3/`](references/gate3/).
+- **Gate 4 (A1)** in review: health-first diagnostics under
+  [`src/leanecon/`](src/leanecon/) with acceptance tests in
+  [`tests/`](tests/); evidence packet in
+  [`artifacts/a1/`](artifacts/a1/). No A3 workflow or LeanEcon Core yet —
+  those require separate design review and approval.
 
 ## Credit & attribution
 
