@@ -32,3 +32,4 @@ leanpkg.path
 tmp/
 artifacts/local/
 *.log
+scripts_local/
