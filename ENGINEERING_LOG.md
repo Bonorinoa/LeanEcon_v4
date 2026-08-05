@@ -2,6 +2,16 @@
 
 Compact, durable lessons only. v3's frozen log stays in the v3 archive.
 
+## 2026-08-05 — Temporary branch-protection relaxation (CTO-approved)
+
+`main` protection carried `enforce_admins: true` + required check
+`scaffold-check` + 1 approving review. Because no second account exists yet,
+no PR could be merged (self-approval impossible). CTO decision: temporarily
+drop the approving-review requirement, keep required checks, merge Gate 3
+(PR #1) and Gate 4 A1 (PR #2), then restore the original protection.
+Interim state only: the second-account requirement from Gate 2 remains open
+and must be resolved before any release-labeled work.
+
 ## 2026-08-05 — A1 diagnostics green (Gate 4)
 
 - All ten A1 criteria passed on first complete run after two fixes:
