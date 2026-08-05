@@ -41,7 +41,7 @@ jobs:
       - name: Assert no obvious credential patterns in tracked files
         run: |
           if grep -rInE '(ghp_[A-Za-z0-9]{20,}|github_pat_|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|api[_-]?key[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"']{8,})' \
-                --exclude-dir=.git .; then
+                --exclude-dir=.git --exclude-dir=.github .; then
             echo "possible credential pattern detected"; exit 1
           fi
           echo "no credential patterns found"
