@@ -8,7 +8,7 @@
 | 2 | Lifecycle | `REVIEW_REQUIRED` is semantic-only; `INTERPRETED` is distinct from `FORMALIZED` | **LOCKED** |
 | 3 | Capability labels | S3a: `HEALTHY`/`DEGRADED`/`UNAVAILABLE` for diagnostics and bundle metadata only | **LOCKED** |
 | 4 | Observability | Minimal append-only event envelope; no health matrix or SLOs | **LOCKED** |
-| 5 | EconomicInterpretation/Core | Option B design direction approved; schema remains discussion draft | **LOCKED AS DIRECTION; NO SCHEMA FREEZE** |
+| 5 | EconomicInterpretation/Core | Option B design direction approved as proposed (2026-08-05); all four design decisions locked; schema remains draft until A3 | **LOCKED — DIRECTION APPROVED; NO SCHEMA FREEZE** |
 | 6 | Provider contracts | Provider-neutral capability boundary and approved MVP model mapping | **LOCKED** |
 | 7 | Verification bundle | Strict `VERIFIED` requirements, including kernel check and reproducibility metadata | **LOCKED** |
 | 8 | Axiom/dependency authority | Per-run reviewer record referenced by `axiom_approval_ref` | **LOCKED** |

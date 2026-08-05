@@ -1,6 +1,12 @@
 # 3.3/3.7 EconomicInterpretation and LeanEcon Core Design Discussion
 
-**Status:** discussion proposal, not an approved schema freeze and not an implementation plan. This document answers the CTO's question: how can the system make “what does this claim mean, under which assumptions, and what remains ambiguous?” credible without requiring the reviewer to read Lean?
+**Status:** design direction **approved by CTO on 2026-08-05 as proposed**
+(Option B: controlled meaning frame + small reviewed glossary; `none_noted`
+requires reviewer acknowledgement; formalization mapping report required
+before `PROVING`; first 3–5 canonical claims are the EI acceptance test).
+Not an approved schema freeze and not an implementation plan; the EI schema
+remains a draft to be exercised at A3. Core implementation requires the
+Gate 6 design review.
 
 ## Recommendation in one sentence
 
@@ -100,11 +106,24 @@ This example shows why solution concept, quantifier order, and definition refere
 
 **Explicitly out of scope:** OWL/RDF ontology engineering, general economics knowledge graph, automatic Core promotion, graph database dependency, textbook-scale ontology, and using v3 declarations as the v4 ontology.
 
-## CTO decisions before A3
+## CTO decisions before A3 — APPROVED 2026-08-05
 
-1. Approve Option B as the design direction: controlled EI frame plus small reviewed glossary.
-2. Require `none_noted` plus reviewer acknowledgement when no ambiguity is identified?
-3. Require a formalization mapping report before a candidate can enter `PROVING`?
-4. Confirm the first 3–5 canonical claims are the acceptance test for EI credibility.
+The CTO approved this design **as proposed** (decision record:
+`DECISION_LOG.md` item 5; closure question 4). The four decisions are locked
+as design direction; the EI schema itself remains a draft to be exercised at
+A3, not a frozen schema:
+
+1. ✅ **Option B** is the design direction: controlled EI frame plus a small
+   reviewed glossary.
+2. ✅ **`none_noted` plus reviewer acknowledgement** is required when no
+   ambiguity is identified.
+3. ✅ **A formalization mapping report is required** before a candidate can
+   enter `PROVING` (visible gaps, no silently invented definitions).
+4. ✅ **The first 3–5 canonical claims are the acceptance test** for EI
+   credibility; the CTO reviews them before A3. If the frame cannot support
+   confident review, revise it.
+
+These approvals do not freeze the schema and do not authorize LeanEcon Core
+implementation (Gate 6 design review remains mandatory).
 
 **Attribution:** Prepared by Hermes Agent (Nous Research) under direction of the CTO. The CTO remains the sole semantic approver.
