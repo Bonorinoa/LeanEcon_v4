@@ -61,3 +61,35 @@ and must be resolved before any release-labeled work.
 - Draft-schema exercises (CTO-approved as proposed): optional `none_noted`
   marker + required reviewer acknowledgement; nullable `review.reviewer` /
   `review.event_ref` while PENDING. Schema remains draft until A3 walkthrough.
+
+## 2026-08-06 — Gate 5 live walkthrough + hardening (session record)
+
+- **Walkthrough**: four canonical claims (C1–C4) completed the full pipeline
+  with LIVE providers: interpret -> CTO review (approve, reviewer=Bonorinoa)
+  -> formalize -> gap-acks -> reviewer-corrected proof fixtures -> kernel
+  verification -> bundles 11/11 -> trace replay green. All four `VERIFIED`.
+  Bundles/events are local artifacts (`artifacts/local/a3/`, gitignored).
+- **Formalizer (labs-leanstral-1-5) evaluation**: NOT statement-faithful —
+  c1 vacuous tautology (conclusion = hypothesis), c2 invalid binder
+  `[Set α]`, c3 `sorry` in the proof body + missing hypothesis, c4 sound.
+  Mapping reports do not reliably use canonical EI element ids
+  (`object:u` prefixes, titles for `definition:<i>`). Verdict: reviewer-
+  in-the-loop is load-bearing; never trust formalizer statements un-reviewed.
+  Full record: skill `leanecon-verified-workflow`, reference
+  `walkthrough-2026-08-06.md`.
+- **Bugs found live (all fixed + regression-tested, PR #5)**:
+  1. `#print axioms` empty-axiom sentence not parsed (`does not depend on any
+     axioms`); 2. bundle check 6 demanded an axiom record for zero-axiom
+     theorems (now vacuous); 3. static sorry scan false-positived on comments
+     (comment stripping added; kernel audit authoritative); 4. VERIFIED state
+     is now gated on the bundle validator (gate3/05); 5. replay consistency
+     rule = manifest result vs verification record outcome.
+- **Track B (formalizer improvement, in progress)**: prompt hardened (no
+  proof body, no invalid binders, no tautologies, canonical ids); static
+  statement validation (sorry/`:=` = hard reject, PROVIDER_INVALID_OUTPUT);
+  compile probe at formalize time (evaluation signal recorded in the formal
+  artifact); vacuity warning heuristic; gap classification
+  (id_scheme_deviation vs genuinely_missing); `formalize --force`
+  re-formalization (FORMALIZED -> FORMALIZED lifecycle edge).
+- **Deferred**: second GitHub approval account (interim merge procedure
+  remains); Gate 6 init doc written for a NEW session.

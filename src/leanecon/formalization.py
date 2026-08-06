@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+from typing import Any, Optional
 
 #: Element kinds that must be mapped (or flagged unmapped) before PROVING.
 MATERIAL_KINDS = {"object", "assumption", "quantifier", "conclusion", "solution", "definition"}
@@ -82,28 +82,120 @@ def validate_mapping_report(report: list[dict], ei: dict) -> tuple[list[str], li
 
 
 def formalize_prompt(ei: dict) -> str:
-    """Prompt for the formalize capability (MVP model per adapter config)."""
+    """Prompt for the formalize capability (MVP model per adapter config).
+
+    Hardened after the 2026-08-06 walkthrough: the live formalizer produced
+    vacuous tautologies (c1), an invalid `[Set α]` binder (c2), a `sorry`
+    proof body (c3), and non-canonical mapping ids. The rules below make each
+    failure mode an explicit instruction; the static validator
+    (validate_statement_text) and the compile probe back it up.
+    """
     return (
         "You are the formalization service of a kernel-checked economics system. "
         "Given the ACCEPTED interpretation below (JSON), write a Lean 4 formal "
         "statement in the pinned Mathlib workspace.\n\n"
         "Rules:\n"
         "- Output ONLY a JSON object: {\"statement\": <theorem signature as Lean text, "
-        "e.g. 'theorem name (args) : proposition' — WITHOUT proof body>, "
+        "e.g. 'theorem name (args) : proposition' — signature ONLY, no proof body>, "
         "\"target_theorem\": <theorem name>, \"mapping_report\": [...]}.\n"
-        "- Do not write a proof body. Do not use sorry/admit.\n"
+        "- HARD: the statement must be a SIGNATURE ONLY. It must end at the "
+        "conclusion: `... : <conclusion>` with NO `:=` and NO `by ...` — do not "
+        "attach a proof body. Do not use sorry/admit anywhere.\n"
+        "- HARD: the statement must be well-formed Lean that compiles under "
+        "`import Mathlib`. Typeclass binders like `[Set α]` are INVALID — use "
+        "`[Fintype α]`, `[LinearOrder α]` etc. only for genuine typeclasses.\n"
+        "- HARD: no tautologies and no vacuous theorems. The conclusion must be "
+        "a substantive proposition about the claim, NOT identical to any "
+        "hypothesis, and not derivable from a hypothesis alone. If the claim "
+        "is a property claim (e.g. 'weak preference is transitive'), state the "
+        "property as the conclusion with the objects as parameters.\n"
+        "- Every hypothesis you list in the signature must actually appear in "
+        "the signature, and every parameter must be USED in the statement. Do "
+        "not reference hypotheses that are absent.\n"
         "- The statement may define small A3-local scaffolding definitions first "
         "(clearly commented 'A3-local scaffolding, not LeanEcon Core').\n"
         "- The mapping_report must contain one row per material EI element with "
         "fields: ei_element_id, ei_element_kind, lean_identifier, mapping_kind "
         "(mathlib|local_definition|glossary_term|none), status (mapped|unmapped|deferred), "
-        "provenance, note. Element ids: object ids from the interpretation, "
-        "'assumption:<i>', 'quantifier:<i>', 'conclusion', 'solution_concept', 'definition:<i>'.\n"
+        "provenance, note. Element ids MUST be used EXACTLY as given: object ids "
+        "from the interpretation (e.g. 'u', 'x', 'preferences' — never 'object:u'), "
+        "'assumption:<i>', 'quantifier:<i>', 'conclusion', 'solution_concept', "
+        "'definition:<i>'. Do not rename or prefix them.\n"
         "- If an element cannot be mapped, mark it unmapped with a note — never "
         "invent a definition to hide the gap.\n\n"
         "Accepted interpretation (JSON):\n"
         f"{json.dumps(ei, indent=1, sort_keys=True)}"
     )
+
+
+_SORRY_TOKENS = ("sorry", "admit")
+
+
+def validate_statement_text(statement: str) -> list[str]:
+    """Static contract checks on the candidate statement. Returns problems.
+
+    Hard failures (the run is rejected with PROVIDER_INVALID_OUTPUT):
+    - sorry/admit anywhere in the statement;
+    - a proof body attached with ``:=`` (the prompt requires a bare signature).
+
+    These mirror the walkthrough's c2/c3 failure modes. The kernel compile
+    probe (verifier.probe_statement_compiles) additionally records whether the
+    statement compiles — an evaluation signal, not a blocker.
+    """
+    problems: list[str] = []
+    lowered = statement.lower()
+    for token in _SORRY_TOKENS:
+        if token in lowered:
+            problems.append(f"statement contains '{token}' (contract violation)")
+    if re.search(r"\s:=", statement) or statement.rstrip().endswith(":="):
+        problems.append("statement carries a proof body ('... :='); output the signature only")
+    return problems
+
+
+def vacuity_warning(statement: str) -> Optional[str]:
+    """Heuristic: does the conclusion restate a hypothesis (vacuous/tautological)?
+
+    Extracts the text after the LAST ``:`` (the conclusion) and checks whether
+    a normalized form of it also appears in the hypothesis region. A warning
+    only — the reviewer decides; the kernel arbitrates.
+    """
+    colon = statement.rfind(":")
+    if colon == -1:
+        return None
+    conclusion = statement[colon + 1 :].strip().rstrip(".")
+    if not conclusion:
+        return None
+    hypothesis_region = statement[:colon]
+    norm = lambda s: re.sub(r"\s+", "", s)
+    if norm(conclusion) in norm(hypothesis_region):
+        return f"conclusion restates a hypothesis (potential vacuity): '{conclusion[:80]}'"
+    return None
+
+
+def classify_gaps(gaps: list[dict], report: list[dict]) -> list[dict]:
+    """Annotate missing-row gaps: id-scheme deviation vs genuinely missing.
+
+    The live formalizer sometimes prefixed canonical ids ('object:u' instead
+    of 'u'). A row whose id is '<anything>:<canonical>' (or '<kind>:<canonical>')
+    demonstrably covers the element under a non-compliant id — an evaluation
+    signal about id discipline, not a coverage gap. Anything else is
+    genuinely missing. Unmapped-status gaps keep their reason unchanged.
+    """
+    row_ids = {str(row.get("ei_element_id", "")) for row in report if isinstance(row, dict)}
+    classified: list[dict] = []
+    for gap in gaps:
+        gap = dict(gap)
+        cid = str(gap["ei_element_id"])
+        if gap.get("reason") == "missing mapping row":
+            deviation = any(
+                rid != cid and (rid.endswith(":" + cid) or rid == f"{gap['ei_element_kind']}:{cid}")
+                for rid in row_ids
+            )
+            gap["classification"] = "id_scheme_deviation" if deviation else "genuinely_missing"
+        else:
+            gap["classification"] = "unmapped_with_note"
+        classified.append(gap)
+    return classified
 
 
 def parse_formalize_response(content: str) -> dict:

@@ -37,6 +37,12 @@ TRANSITIONS: frozenset[tuple[str | None, str]] = frozenset(
         ("DRAFT", "BLOCKED"),
         # gate3/02 failure-exit rule: work ran and produced a negative result
         ("DRAFT", "FAILED"),
+        # re-formalization attempt (formalize --force): new formal revision,
+        # same claim; supersedes the previous candidate
+        ("FORMALIZED", "FORMALIZED"),
+        # retry formalization after a rejected candidate (FAILED by
+        # PROVIDER_INVALID_OUTPUT etc.) — same claim, fresh attempt
+        ("FAILED", "FORMALIZED"),
         ("INTERPRETED", "REVIEW_REQUIRED"),
         ("INTERPRETED", "FAILED"),
         # semantic review gate (reviewer only)

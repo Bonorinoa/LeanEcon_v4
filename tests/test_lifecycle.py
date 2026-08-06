@@ -58,9 +58,22 @@ def test_failure_exits_from_processing_states():
     # gate3/02 failure-exit rule: work ran and produced a negative result
     assert validate_transition("DRAFT", "FAILED") is None
     assert validate_transition("INTERPRETED", "FAILED") is None
-    assert validate_transition("ACCEPTED", "BLOCKED") is None
+    assert validate_transition("REVIEW_REQUIRED", "REJECTED") is None
     assert validate_transition("PROVING", "FAILED") is None
     assert validate_transition("PROVING", "BLOCKED") is None
+
+
+def test_reformalization_attempt_is_legal():
+    """Walkthrough hardening: formalize --force emits FORMALIZED -> FORMALIZED
+    (a new formal revision superseding the previous candidate)."""
+    assert validate_transition("FORMALIZED", "FORMALIZED") is None
+    assert validate_transition("FORMALIZED", "PROVING") is None
+
+
+def test_formalize_retry_from_failed_is_legal():
+    """A rejected candidate leaves the claim FAILED; retry formalization is
+    the recovery path (FAILED -> FORMALIZED)."""
+    assert validate_transition("FAILED", "FORMALIZED") is None
 
 
 def test_unknown_states_rejected():

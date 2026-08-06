@@ -135,6 +135,29 @@ def _strip_lean_comments(source: str) -> str:
     return "\n".join(out)
 
 
+def probe_statement_compiles(workspace_root: Path, statement_text: str, timeout_s: int = 180) -> dict:
+    """Compile the formalizer's statement in the pinned workspace (evaluation signal).
+
+    Returns {compiles: bool, exit_code: int|None, stderr_tail: str}. A
+    non-compiling statement is recorded and surfaced to the reviewer — NOT a
+    blocker (the reviewer owns the statement; the kernel arbitrates at verify).
+    Written under ``.a3-candidates/probe/`` so no lib-tree module inference
+    applies.
+    """
+    probe_dir = workspace_root / ".a3-candidates" / "probe"
+    probe_dir.mkdir(parents=True, exist_ok=True)
+    source_path = probe_dir / f"probe_{int(time.time())}.lean"
+    if not any(line.strip().startswith("import") for line in statement_text.splitlines()):
+        statement_text = "import Mathlib\nimport Mathlib.Tactic\n" + statement_text
+    source_path.write_text(statement_text, encoding="utf-8")
+    exit_code, stdout, stderr, _ = run_lake_env_lean(workspace_root, source_path, timeout_s)
+    return {
+        "compiles": exit_code == 0,
+        "exit_code": exit_code,
+        "stderr_tail": (stderr or "")[-400:],
+    }
+
+
 def run_lake_env_lean(workspace_root: Path, source_path: Path, timeout_s: int) -> tuple:
     """Run ``lake env lean <file>`` in the pinned workspace.
 

@@ -51,9 +51,12 @@ from leanecon.events import (
     EventLog,
 )
 from leanecon.formalization import (
+    classify_gaps,
     formalize_prompt,
     parse_formalize_response,
+    vacuity_warning,
     validate_mapping_report,
+    validate_statement_text,
 )
 from leanecon.interpretation import (
     finalize_ei,
@@ -66,7 +69,11 @@ from leanecon.lifecycle import TERMINAL_STATES
 from leanecon.providers import Capability, ProviderAdapter, ProviderFailure
 from leanecon.repopath import find_repo_root
 from leanecon.trace_replay import replay_claim, replay_run
-from leanecon.verifier import REASON_SORRY_FOUND, verify_candidate
+from leanecon.verifier import (
+    REASON_SORRY_FOUND,
+    probe_statement_compiles,
+    verify_candidate,
+)
 
 REPO_ROOT = find_repo_root()
 WORKSPACE = REPO_ROOT / "lean_workspace"
@@ -364,7 +371,7 @@ def cmd_review(args, store: ArtifactStore) -> int:
 # ---------------------------------------------------------------------------
 
 
-def formalize_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run_id: str, adapter: ProviderAdapter) -> tuple[str, Optional[dict]]:
+def formalize_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run_id: str, adapter: ProviderAdapter, workspace_root: Path) -> tuple[str, Optional[dict]]:
     ei = store.read_ei(claim.claim_id, claim.accepted_ei_rev)
     try:
         response = adapter.request(
@@ -391,11 +398,28 @@ def formalize_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run
                      reason_codes=("PROVIDER_INVALID_OUTPUT",), detail={"error": str(exc)})
         return "FAILED", None
 
+    # Static statement contract (walkthrough hardening): sorry/admit and
+    # attached proof bodies are hard rejections — the candidate never reaches
+    # the store, and the failure is visible in the trace.
+    statement_problems = validate_statement_text(parsed["statement"])
+    if statement_problems:
+        _state_event(log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
+                     reason_codes=("PROVIDER_INVALID_OUTPUT",),
+                     detail={"statement_problems": statement_problems[:5]})
+        return "FAILED", None
+
     problems, gaps = validate_mapping_report(parsed["mapping_report"], ei)
     if problems:
         _state_event(log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
                      reason_codes=("PROVIDER_INVALID_OUTPUT",), detail={"mapping_problems": problems[:5]})
         return "FAILED", None
+
+    # Classify gaps (id-scheme deviation vs genuinely missing) and probe the
+    # statement in the pinned workspace — both are evaluation signals for the
+    # reviewer, recorded in the formal artifact.
+    gaps = classify_gaps(gaps, parsed["mapping_report"])
+    probe = probe_statement_compiles(workspace_root, parsed["statement"])
+    vacuity = vacuity_warning(parsed["statement"])
 
     imports = [line.split("import", 1)[1].strip() for line in parsed["statement"].splitlines()
                if line.strip().startswith("import")]
@@ -406,6 +430,8 @@ def formalize_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run
         "imports": imports,
         "interpretation_digest": ei.get("digest"),
         "gaps": gaps,
+        "statement_probe": probe,
+        "vacuity_warning": vacuity,
         "provenance": {"capability": "formalize", "model": response.metadata.model, "request_id": response.metadata.request_id},
     }
     artifact = store.write_formal(claim.claim_id, candidate, status="current")
@@ -414,7 +440,7 @@ def formalize_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run
     # or the trace chain becomes inconsistent with the persisted state.
     _state_event(log, run_id, claim.claim_id, claim.state, "FORMALIZED", "system", "a3-formalize",
                  detail={"formal_rev": artifact["revision"], "target_theorem": parsed["target_theorem"],
-                         "gap_count": len(gaps)})
+                         "gap_count": len(gaps), "statement_compiles": probe.get("compiles")})
     if gaps:
         _emit(log, Event(
             event_type=EVENT_DIAGNOSTIC_RESULT,
@@ -434,20 +460,39 @@ def formalize_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run
 
 def cmd_formalize(args, store: ArtifactStore) -> int:
     claim = store.load_claim(args.claim_id)
-    _claim_state_guard(claim, {"ACCEPTED", "BLOCKED"}, "formalize")
+    if claim.state == "FORMALIZED" and not args.force:
+        raise SystemExit(
+            f"claim {claim.claim_id} is already FORMALIZED; use --force to re-formalize "
+            "(new formal revision, supersedes the current candidate)")
+    # FAILED is legal here: a rejected candidate (PROVIDER_INVALID_OUTPUT)
+    # leaves the claim FAILED — retry is the natural recovery path
+    _claim_state_guard(claim, {"ACCEPTED", "BLOCKED", "FORMALIZED", "FAILED"}, "formalize")
     run_id, log = _new_run(args.events_dir)
     adapter = _make_adapter(run_id, log)
-    state_after, candidate = formalize_claim(claim, store, log, run_id, adapter)
+    state_after, candidate = formalize_claim(claim, store, log, run_id, adapter, WORKSPACE)
     claim.state = state_after
-    claim.formal_rev = store.formal_revs(claim.claim_id)[-1]
+    revs = store.formal_revs(claim.claim_id)
+    if revs:
+        # a rejected candidate (static validation / parse failure) writes NO
+        # artifact; keep the previous formal_rev reference in that case
+        claim.formal_rev = revs[-1]
     store.save_claim(claim)
     if candidate is not None:
         gaps = candidate.get("gaps") or []
+        probe = candidate.get("statement_probe") or {}
         print(f"claim {claim.claim_id}: FORMALIZED (target theorem {candidate['target_theorem']})")
+        compiles = probe.get("compiles")
+        if compiles is False:
+            print(f"  STATEMENT COMPILE PROBE: FAILED (exit {probe.get('exit_code')}) — see artifact stderr_tail")
+        elif compiles is True:
+            print("  statement compiles in pinned workspace (kernel probe)")
+        if candidate.get("vacuity_warning"):
+            print(f"  VACUITY WARNING: {candidate['vacuity_warning']}")
         if gaps:
             print(f"  MAPPING GAPS ({len(gaps)}): PROVING blocked until reviewed")
             for gap in gaps:
-                print(f"    - {gap['ei_element_id']} ({gap['ei_element_kind']}): {gap.get('reason')}")
+                tag = gap.get("classification", "missing mapping row")
+                print(f"    - {gap['ei_element_id']} ({gap['ei_element_kind']}): [{tag}] {gap.get('reason')}")
             print("  resolve with: `a3 gap-ack --claim-id ... --reviewer <id>` or revise the claim")
         else:
             print("  mapping report complete: no gaps")
@@ -683,6 +728,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("formalize", help="run formalization (live provider call)")
     p.add_argument("--claim-id", required=True)
+    p.add_argument("--force", action="store_true",
+                   help="re-formalize an already-FORMALIZED claim (new formal revision)")
     p.set_defaults(func=cmd_formalize)
 
     p = sub.add_parser("gap-ack", help="reviewer acknowledges mapping gaps (per-run reviewer record)")

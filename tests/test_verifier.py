@@ -169,6 +169,18 @@ def test_unpinned_workspace_is_blocked(tmp_path):
     assert record.reason_code == "WORKSPACE_UNPINNED"
 
 
+@requires_workspace
+def test_probe_statement_compiles_real_workspace(elan_on_path):
+    """Walkthrough hardening: the statement compile probe runs lake env lean
+    in the pinned workspace — a compiling statement reports True, a broken
+    statement (the walkthrough's `[Set α]` binder) reports False."""
+    ok = verifier.probe_statement_compiles(WORKSPACE, "theorem probe_ok : True := by trivial")
+    assert ok["compiles"] is True
+    broken = verifier.probe_statement_compiles(WORKSPACE, "theorem probe_bad {α : Type} [Set α] : True := by trivial")
+    assert broken["compiles"] is False
+    assert broken["exit_code"] not in (None, 0)
+
+
 def test_lake_missing_is_blocked(tmp_path, monkeypatch):
     (tmp_path / "lean-toolchain").write_text("leanprover/lean4:v4.32.2\n")
     (tmp_path / "lakefile.lean").write_text('import Lake\nrequire "leanprover-community" / "mathlib" @ git "v4.32.2"\n')
