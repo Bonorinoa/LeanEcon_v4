@@ -2,10 +2,10 @@
 
 ``VERIFIED`` is a trust claim: the bundle must let the reviewer identify
 exactly what was interpreted, approved, checked, and under which
-environment. The validator implements the eleven required checks; a
-VERIFIED result requires every check to pass. The proven or failed input
-statement is always retained, with sanity-check metadata describing the
-state in which it was evaluated.
+environment. The validator implements the eleven required checks plus the
+Core-pin check (12_core_pin, D2); a VERIFIED result requires every check
+to pass. The proven or failed input statement is always retained, with
+sanity-check metadata describing the state in which it was evaluated.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 from leanecon.claim_store import ArtifactStore
 from leanecon.data_policy import canonical_digest
-from leanecon.lean_probe import read_workspace_identity
+from leanecon.lean_probe import compute_core_revision, read_workspace_identity
 
 BUNDLE_SCHEMA_VERSION = "1.0.0"
 
@@ -43,6 +43,25 @@ MANIFEST_FIELDS = (
     "builder_identity",
     "retention_policy",
 )
+
+
+def _extract_core_imports(formal_imports: list, proof_source: str) -> list[str]:
+    """Union of Core imports across the formal statement and the proof input.
+
+    D2: whatever the kernel compiled (the proof, primarily) plus the formal
+    statement's declared imports. Sorted, deduplicated.
+    """
+    names: set[str] = set()
+    for imp in formal_imports or []:
+        if str(imp).startswith("LeanEcon.Core"):
+            names.add(str(imp))
+    for line in (proof_source or "").splitlines():
+        line = line.strip()
+        if line.startswith("import"):
+            name = line.split("import", 1)[1].strip()
+            if name.startswith("LeanEcon.Core"):
+                names.add(name)
+    return sorted(names)
 
 
 def build_bundle(
@@ -83,6 +102,7 @@ def build_bundle(
             "toolchain": identity.lean_toolchain,
             "mathlib": identity.mathlib_revision,
             "pinned": identity.pinned,
+            "core_revision": identity.core_revision,
             "workspace_root": str(workspace_root),
         },
         "axiom_audit": {
@@ -94,6 +114,7 @@ def build_bundle(
         "dependency_audit": {
             "imports": formal_artifact.get("imports", []),
             "mathlib_revision": identity.mathlib_revision,
+            "core_imports": _extract_core_imports(formal_artifact.get("imports", []), proof_source),
         },
         "trace_refs": trace_refs,
         "capability_snapshots": capability_snapshots,
@@ -228,6 +249,34 @@ def validate_bundle(store: ArtifactStore, bundle_id: str, claim) -> list[tuple[s
     # 11 reproducible manifest
     repro = manifest.get("reproducibility", {})
     checks.append(("11_reproducibility", bool(repro.get("commands")) and bool(repro.get("created_at")), "commands + timestamps present"))
+
+    # 12 Core pin (D2, a3-core-design.md §1.4 / data-flow-model.md §5):
+    # Core imports in dependency_audit REQUIRE workspace_identity.core_revision
+    # (a VERIFIED claim must be reproducible against the exact Core revision).
+    # When the workspace is available, the recorded pin must match the
+    # recomputed tree digest (stale-pin detection, data-flow-model.md §8);
+    # otherwise presence is verified and the environment noted.
+    dep = manifest.get("dependency_audit", {}) or {}
+    core_imports = dep.get("core_imports") or []
+    core_rev = ws.get("core_revision")
+    if core_imports and not core_rev:
+        checks.append(("12_core_pin", False, f"Core imports {core_imports} present without workspace_identity.core_revision"))
+    elif core_imports:
+        detail = f"Core imports {core_imports} pinned to {str(core_rev)[:12]}…"
+        try:
+            ws_root = Path(str(ws.get("workspace_root") or ""))
+            if not ws_root.is_dir():
+                checks.append(("12_core_pin", True, detail + " (workspace not available here — presence verified)"))
+            else:
+                recomputed = compute_core_revision(ws_root)
+                if recomputed != core_rev:
+                    checks.append(("12_core_pin", False, f"stale Core pin: recorded {str(core_rev)[:12]}…, workspace tree digest {(recomputed or 'none')[:12]}"))
+                else:
+                    checks.append(("12_core_pin", True, detail + " digest matches workspace"))
+        except OSError:
+            checks.append(("12_core_pin", True, detail + " (workspace unreadable here — presence verified)"))
+    else:
+        checks.append(("12_core_pin", True, "no Core imports; pin not required"))
 
     return checks
 

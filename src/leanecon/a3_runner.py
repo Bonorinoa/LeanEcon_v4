@@ -10,7 +10,7 @@ Subcommands (the CTO-facing surface):
   gap-ack       reviewer acknowledges mapping gaps (enables PROVING)
   axiom-approve reviewer approves the axiom list (per-run reviewer record)
   verify        proof input -> PROVING -> VERIFIED | FAILED | BLOCKED + bundle
-  bundle        re-validate the current bundle and print the 11-item checklist
+  bundle        re-validate the current bundle and print the validator checklist
   replay        trace replay by run id or claim id
   status        claim state and artifact references
 
@@ -56,6 +56,7 @@ from leanecon.formalization import (
     parse_formalize_response,
     vacuity_warning,
     validate_mapping_report,
+    validate_scaffolding_namespace,
     validate_statement_text,
 )
 from leanecon.interpretation import (
@@ -408,6 +409,16 @@ def formalize_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run
                      detail={"statement_problems": statement_problems[:5]})
         return "FAILED", None
 
+    # D4 (a3-core-design.md §4): A3-local scaffolding must be namespace-scoped.
+    # A root-namespace declaration in the candidate is a prompt violation of
+    # the same class as a proof body — rejected before the store.
+    scaffolding_problems = validate_scaffolding_namespace(parsed["statement"])
+    if scaffolding_problems:
+        _state_event(log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
+                     reason_codes=("PROVIDER_INVALID_OUTPUT",),
+                     detail={"scaffolding_problems": scaffolding_problems[:5]})
+        return "FAILED", None
+
     problems, gaps = validate_mapping_report(parsed["mapping_report"], ei)
     if problems:
         _state_event(log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
@@ -667,7 +678,7 @@ def cmd_bundle(args, store: ArtifactStore) -> int:
         raise SystemExit(f"claim {claim.claim_id} has no bundle yet")
     checks = validate_bundle(store, claim.current_bundle, claim)
     ok = all(c[1] for c in checks)
-    print(f"bundle {claim.current_bundle}: {'VALID' if ok else 'INVALID'} (11-item checklist)")
+    print(f"bundle {claim.current_bundle}: {'VALID' if ok else 'INVALID'} ({len(checks)}-item checklist)")
     for item, passed, detail in checks:
         print(f"  [{('x' if passed else ' ')}] {item}: {detail}")
     return 0 if ok else 1
@@ -751,7 +762,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--timeout", type=int, default=600)
     p.set_defaults(func=cmd_verify)
 
-    p = sub.add_parser("bundle", help="re-validate the current bundle (11-item checklist)")
+    p = sub.add_parser("bundle", help="re-validate the current bundle (validator checklist)")
     p.add_argument("--claim-id", required=True)
     p.set_defaults(func=cmd_bundle)
 

@@ -446,3 +446,68 @@ def test_formalize_probe_and_vacuity_recorded(tmp_path, monkeypatch):
     formal = store.read_formal("c-pv", store.formal_revs("c-pv")[-1])
     assert formal["statement_probe"]["compiles"] is False
     assert formal["vacuity_warning"]
+
+
+# ---------------------------------------------------------------------------
+# P4 D4: namespace-scoped A3-local scaffolding (end-to-end, mocked provider)
+# ---------------------------------------------------------------------------
+
+
+def test_formalize_rejects_root_namespace_scaffolding(tmp_path):
+    """A candidate whose A3-local scaffolding sits at the root namespace is
+    rejected pre-store (PROVIDER_INVALID_OUTPUT) — the fwt1 'abbrev Bundle'
+    confound removed EARLIER (D4)."""
+    store = ArtifactStore(tmp_path)
+    claim = ClaimRecord(claim_id="c-d4", revision=1, source_text="claim", data_class="PROJECT")
+    store.save_claim(claim)
+    store.write_ei("c-d4", valid_ei(), status="accepted")
+    claim.state = "ACCEPTED"
+    claim.accepted_ei_rev = store.ei_revs("c-d4")[-1]
+    store.save_claim(claim)
+    events_dir = tmp_path / "events"
+    run_id, log = a3_runner._new_run(events_dir)
+    from tests.conftest import FakeAdapter
+
+    statement = "abbrev Bundle := ℝ\n\ntheorem t : True"
+    state, candidate = a3_runner.formalize_claim(
+        claim, store, log, run_id,
+        FakeAdapter(formalize_factory=lambda: formalize_output(statement, "t")), WORKSPACE)
+    claim.state = state
+    store.save_claim(claim)
+    assert state == "FAILED"
+    assert candidate is None
+    assert len(store.formal_revs("c-d4")) == 0  # no artifact pollution
+    records = [json.loads(l) for p in (tmp_path / "events").glob("*.jsonl") for l in p.read_text().splitlines() if l.strip()]
+    assert any(r.get("reason_codes") == ["PROVIDER_INVALID_OUTPUT"] for r in records)
+
+
+def test_formalize_accepts_namespaced_scaffolding(tmp_path):
+    """Scaffolding inside 'namespace A3Scaffolding.<claim>' passes D4 and the
+    candidate reaches the store as FORMALIZED."""
+    store = ArtifactStore(tmp_path)
+    claim = ClaimRecord(claim_id="c-d4ok", revision=1, source_text="claim", data_class="PROJECT")
+    store.save_claim(claim)
+    store.write_ei("c-d4ok", valid_ei(), status="accepted")
+    claim.state = "ACCEPTED"
+    claim.accepted_ei_rev = store.ei_revs("c-d4ok")[-1]
+    store.save_claim(claim)
+    events_dir = tmp_path / "events"
+    run_id, log = a3_runner._new_run(events_dir)
+    from tests.conftest import FakeAdapter
+
+    statement = (
+        "namespace A3Scaffolding.c1\n"
+        "abbrev Bundle := ℝ\n"
+        "end A3Scaffolding.c1\n"
+        "\n"
+        "theorem t : True"
+    )
+    state, candidate = a3_runner.formalize_claim(
+        claim, store, log, run_id,
+        FakeAdapter(formalize_factory=lambda: formalize_output(statement, "t")), WORKSPACE)
+    claim.state = state
+    claim.formal_rev = store.formal_revs("c-d4ok")[-1]
+    store.save_claim(claim)
+    assert state == "FORMALIZED"
+    assert candidate is not None and candidate["target_theorem"] == "t"
+    assert len(store.formal_revs("c-d4ok")) == 1

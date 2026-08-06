@@ -1,14 +1,16 @@
 """Formalization service (docs/gate5/a3-design.md §4).
 
 Turns the ACCEPTED interpretation into a candidate Lean statement plus a
-mapping report (EI element -> Mathlib identifier or A3-local scaffolding
-definition). The mapping report is required before PROVING (locked EI
-decision 3): material elements must be mapped or explicitly flagged as
-unmapped gaps; unacknowledged gaps block PROVING entry.
+mapping report (EI element -> Mathlib identifier, Core identifier, glossary
+term, or A3-local scaffolding definition). The mapping report is required
+before PROVING (locked EI decision 3): material elements must be mapped or
+explicitly flagged as unmapped gaps; unacknowledged gaps block PROVING
+entry.
 
-No LeanEcon Core exists yet (Gate 6): economics vocabulary maps to
-Mathlib structure or to clearly-labeled A3-local scaffolding definitions
-inside the candidate file. Nothing here invents definitions silently.
+Core exists since the P2 batch (2026-08-06): economics vocabulary may map
+to promoted LeanEcon.Core declarations via `core` rows (fully-qualified
+identifiers only, D1) or to clearly-labeled, namespace-scoped A3-local
+scaffolding (D4). Nothing here invents definitions silently.
 """
 
 from __future__ import annotations
@@ -23,7 +25,15 @@ MATERIAL_KINDS = {"object", "assumption", "quantifier", "conclusion", "solution"
 DEFERRABLE_KINDS = {"context", "note"}
 
 MAPPING_STATUSES = ("mapped", "unmapped", "deferred")
-MAPPING_KINDS = ("mathlib", "local_definition", "glossary_term", "none")
+MAPPING_KINDS = ("mathlib", "core", "local_definition", "glossary_term", "none")
+
+#: D1 (a3-core-design.md §4): a ``core`` row must carry the FULLY-QUALIFIED
+#: Lean identifier — ``LeanEcon.Core.<Area>.<name>`` (e.g.
+#: ``LeanEcon.Core.Choice.attainableSet``), never a bare name. The namespace
+#: skeleton requires an Area component (Core declarations live under
+#: ``LeanEcon.Core.<Area>``), so at least TWO dotted components after the
+#: ``LeanEcon.Core.`` prefix are required.
+CORE_IDENTIFIER_RE = re.compile(r"^LeanEcon\.Core\.[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+$")
 
 
 def material_element_ids(ei: dict) -> list[tuple[str, str]]:
@@ -66,6 +76,16 @@ def validate_mapping_report(report: list[dict], ei: dict) -> tuple[list[str], li
             problems.append(f"row {row.get('ei_element_id')}: invalid status {row.get('status')!r}")
         if row.get("status") == "mapped" and row.get("mapping_kind") not in MAPPING_KINDS:
             problems.append(f"row {row.get('ei_element_id')}: invalid mapping_kind {row.get('mapping_kind')!r}")
+        if row.get("status") == "mapped" and row.get("mapping_kind") == "core":
+            # D1: core rows must resolve as written — fully-qualified
+            # LeanEcon.Core identifier, no bare names (eliminates open-based
+            # shadowing ambiguity; a3-core-design.md §4).
+            ident = row.get("lean_identifier") or ""
+            if not CORE_IDENTIFIER_RE.match(ident):
+                problems.append(
+                    f"row {row.get('ei_element_id')}: core mapping requires a fully-qualified "
+                    f"LeanEcon.Core identifier (e.g. 'LeanEcon.Core.Choice.attainableSet'), got {ident!r}"
+                )
         if row.get("status") == "deferred" and row.get("ei_element_kind") not in DEFERRABLE_KINDS:
             problems.append(f"row {row.get('ei_element_id')}: material element may not be deferred")
 
@@ -113,11 +133,16 @@ def formalize_prompt(ei: dict) -> str:
         "the signature, and every parameter must be USED in the statement. Do "
         "not reference hypotheses that are absent.\n"
         "- The statement may define small A3-local scaffolding definitions first "
-        "(clearly commented 'A3-local scaffolding, not LeanEcon Core').\n"
+        "(clearly commented 'A3-local scaffolding, not LeanEcon Core'). "
+        "Scaffolding MUST be namespace-scoped: put it inside "
+        "'namespace A3Scaffolding.<claim_id> ... end' — never at the root "
+        "namespace (root declarations can shadow Mathlib identifiers within the file).\n"
         "- The mapping_report must contain one row per material EI element with "
         "fields: ei_element_id, ei_element_kind, lean_identifier, mapping_kind "
-        "(mathlib|local_definition|glossary_term|none), status (mapped|unmapped|deferred), "
-        "provenance, note. Element ids MUST be used EXACTLY as given: object ids "
+        "(mathlib|core|glossary_term|local_definition), status (mapped|unmapped|deferred), "
+        "provenance, note. A 'core' row REQUIRES the fully-qualified Lean identifier "
+        "(e.g. 'LeanEcon.Core.Choice.attainableSet') — never a bare name; the row "
+        "must resolve as written. Element ids MUST be used EXACTLY as given: object ids "
         "from the interpretation (e.g. 'u', 'x', 'preferences' — never 'object:u'), "
         "'assumption:<i>', 'quantifier:<i>', 'conclusion', 'solution_concept', "
         "'definition:<i>'. Do not rename or prefix them.\n"
@@ -130,13 +155,51 @@ def formalize_prompt(ei: dict) -> str:
 
 _SORRY_TOKENS = ("sorry", "admit")
 
+#: Declaration keywords that introduce A3-local scaffolding names at the
+#: current namespace. `theorem` is deliberately absent — the candidate's
+#: target theorem is not scaffolding (D4).
+_SCAFFOLDING_KEYWORDS = ("abbrev", "def", "structure", "class", "inductive", "instance")
+
+#: Declaration keywords tracked for the proof-body check (P4 finding: the
+#: old `\s:=` regex false-positived on scaffolding definitions like
+#: `abbrev Bundle := ℝ`; only THEOREM-STYLE declarations are signature-only).
+_DECL_KEYWORDS = ("theorem", "lemma", "example", "axiom", "def", "abbrev", "structure", "class", "inductive", "instance")
+_SIGNATURE_ONLY = ("theorem", "lemma", "example", "axiom")
+
+
+def _decl_head(line: str) -> Optional[str]:
+    """Declaration keyword at the start of a stripped line, or None.
+
+    Tolerates ``noncomputable``/``private``/``protected`` prefixes and
+    ``@[attr]`` groups so a ``theorem``/``def`` line is still recognized.
+    """
+    while True:
+        if line.startswith(("noncomputable ", "private ", "protected ")):
+            line = line.split(" ", 1)[1].lstrip()
+        elif line.startswith("@["):
+            close = line.find("]")
+            if close == -1:
+                return None
+            line = line[close + 1 :].lstrip()
+        else:
+            break
+    for kw in _DECL_KEYWORDS:
+        if line.startswith(kw) and (len(line) == len(kw) or line[len(kw)] in " \t"):
+            return kw
+    return None
+
 
 def validate_statement_text(statement: str) -> list[str]:
     """Static contract checks on the candidate statement. Returns problems.
 
     Hard failures (the run is rejected with PROVIDER_INVALID_OUTPUT):
     - sorry/admit anywhere in the statement;
-    - a proof body attached with ``:=`` (the prompt requires a bare signature).
+    - a proof body attached to a THEOREM-STYLE declaration (``theorem`` /
+      ``lemma`` / ``example`` / ``axiom`` ... : P := ...) — the prompt
+      requires a bare signature. Definitional ``:=`` on scaffolding
+      declarations (``abbrev Bundle := ℝ``, ``def f ... := ...``) is
+      legitimate syntax and NOT a proof body (P4 finding; D4 namespaced
+      scaffolding relies on this distinction).
 
     These mirror the walkthrough's c2/c3 failure modes. The kernel compile
     probe (verifier.probe_statement_compiles) additionally records whether the
@@ -147,8 +210,62 @@ def validate_statement_text(statement: str) -> list[str]:
     for token in _SORRY_TOKENS:
         if token in lowered:
             problems.append(f"statement contains '{token}' (contract violation)")
-    if re.search(r"\s:=", statement) or statement.rstrip().endswith(":="):
-        problems.append("statement carries a proof body ('... :='); output the signature only")
+    current_decl: Optional[str] = None
+    for lineno, raw in enumerate(statement.splitlines(), start=1):
+        if not raw.strip():
+            continue
+        head = _decl_head(raw.strip())
+        if head is not None:
+            current_decl = head
+            if head in _SIGNATURE_ONLY and ":=" in raw:
+                problems.append(
+                    f"line {lineno}: {head} '{raw.strip()[:70]}' carries a proof body "
+                    "('... :='); output the signature only"
+                )
+        elif current_decl in _SIGNATURE_ONLY and ":=" in raw:
+            # continuation of a wrapped theorem-style declaration
+            problems.append(
+                f"line {lineno}: continuation of a theorem-style declaration carries a proof body ('... :=')"
+            )
+    return problems
+
+
+def validate_scaffolding_namespace(statement: str) -> list[str]:
+    """D4 (a3-core-design.md §4): A3-local scaffolding must be namespace-scoped.
+
+    Flags root-namespace declarations ('abbrev Bundle := ...' outside any
+    'namespace ...'), which can shadow Mathlib identifiers within the
+    candidate file. The target theorem itself ('theorem ...') is never
+    scaffolding and is not flagged. Namespace depth is tracked lexically:
+    'namespace X' increments, 'end'/'end X' decrements; a declaration at
+    depth 0 is a root-namespace declaration.
+
+    Hard failures (the run is rejected with PROVIDER_INVALID_OUTPUT): the
+    prompt requires scaffolding inside 'namespace A3Scaffolding.<claim_id>'.
+    The kernel check at verify time remains the authoritative layer; this
+    static check removes the confound EARLIER (fwt1 lesson: reviewer proofs
+    and candidates used root 'abbrev Bundle').
+    """
+    problems: list[str] = []
+    depth = 0
+    for lineno, raw in enumerate(statement.splitlines(), start=1):
+        line = raw.strip()
+        if not line or line.startswith(("--", "/-")) or line.startswith("import"):
+            continue
+        if line.startswith(("namespace ", "namespace\t")):
+            depth += 1
+            continue
+        if line.startswith("end"):
+            depth = max(0, depth - 1)
+            continue
+        if depth == 0:
+            for kw in _SCAFFOLDING_KEYWORDS:
+                if line.startswith(kw) and (len(line) == len(kw) or line[len(kw)] in " \t"):
+                    problems.append(
+                        f"line {lineno}: root-namespace declaration '{line[:70]}' — "
+                        "A3-local scaffolding must live in 'namespace A3Scaffolding.<claim>' (D4)"
+                    )
+                    break
     return problems
 
 

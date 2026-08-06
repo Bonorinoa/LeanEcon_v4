@@ -98,3 +98,35 @@ Resolutions incorporated:
 - `weakPreference`/`utility` approved as vocabulary-anchor aliases (D5).
 - No equilibrium-family declarations, no demand/choice correspondences, no
   A3 code changes in this batch (P4).
+
+---
+
+# P3 + P4 — Glossary registry v1 and A3 contract deltas (APPROVED 2026-08-06)
+
+**Status:** P3 registry v1 merged (PR #9); P4 batch approved by the CTO as
+proposed (verdicts D1–D8 in `docs/gate6/P4_REVIEW_BATCH.md` §3). The
+137-test baseline stays green (156 passed with the 19 new P4 tests).
+
+| # | Item | CTO disposition | Package state |
+|---|---|---|---|
+| 22 | P3 glossary registry v1 (`references/core-glossary-detail.md`): version header + change log; six P2 promotions reflected (entries 1, 6, 7, 9, 12, 13 → core); equilibrium family (21–28) glossary-only/core-candidate | Approved as proposed; merged PR #9 | **MERGED** |
+| 23 | P4 batch: D1 (`core` mapping kind + fully-qualified `LeanEcon.Core.<Area>.<name>` ids), D2 (Core pin `workspace_identity.core_revision` + `dependency_audit.core_imports` + check `12_core_pin`), D4 (namespace-scoped A3-local scaffolding, hard-rejected at formalize), D3 (collision-check review item in the ontology-record template, docs) | Approved as proposed (D1–D8); `bundle_schema_version` stays 1.0.0 (additive); `mapping_kind: none` retained in the enum; D3 CI-grep proposal-only | **APPROVED** |
+| 24 | P4 commit/PR (code + tests + review package) | Commit follows this approval; CI gates + merge flow per the established procedure | **PENDING COMMIT** |
+
+Resolutions incorporated:
+
+- D1: the FQ pattern requires `LeanEcon.Core.<Area>.<name>` (≥2 dotted
+  components after the prefix — the §1.3 namespace skeleton); bare or
+  Area-less ids are flagged.
+- D2: `bundle_schema_version` stays 1.0.0 (additive fields; validator is
+  the only consumer; historical bundles re-validate); `12_core_pin` is a
+  distinct checklist item, including stale-pin detection (manifest vs
+  workspace digest) when the workspace is available.
+- D4: hard rejection (PROVIDER_INVALID_OUTPUT, no artifact) at formalize;
+  the verifier path for reviewer-authored proofs is untouched.
+- Surfaced finding fixed as root cause: the `:=` proof-body check is now
+  declaration-aware (`theorem`/`lemma`/`example`/`axiom` only) so
+  namespaced scaffolding definitions (`abbrev Bundle := ℝ`) are legal;
+  regression test `test_validate_statement_text_allows_definitional_body`.
+- No verify-side scaffolding check, no `mapping_kind: none` removal, no
+  Core-importing claim run (P5 evidence), no equilibrium declarations.
