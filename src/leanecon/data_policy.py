@@ -69,18 +69,36 @@ def classify(declared: Any) -> PayloadClass:
 
 
 def contains_gold(payload: Any) -> list:
-    """Recursively find gold/hidden-evaluation markers. Returns found keys."""
+    """Recursively find gold/hidden-evaluation markers.
+
+    Matches marker KEYS anywhere in the structure AND marker substrings
+    inside string values (e.g. a pasted gold statement in claim text).
+    Markers are distinctive underscore tokens, so substring matching does
+    not false-positive on ordinary prose.
+    """
     found: list = []
 
     def walk(node: Any) -> None:
         if isinstance(node, dict):
             for key, value in node.items():
-                if str(key).lower() in GOLD_MARKERS:
+                lowered_key = str(key).lower()
+                exact = lowered_key in GOLD_MARKERS
+                if exact:
                     found.append(str(key))
+                else:
+                    # compound keys containing a marker (e.g. "gold_statement_ref")
+                    for marker in GOLD_MARKERS:
+                        if marker in lowered_key:
+                            found.append(f"{key}:{marker}")
                 walk(value)
-        elif isinstance(node, (list, tuple)):
+        elif isinstance(node, list | tuple):
             for item in node:
                 walk(item)
+        elif isinstance(node, str):
+            lowered = node.lower()
+            for marker in GOLD_MARKERS:
+                if marker in lowered:
+                    found.append(marker)
 
     walk(payload)
     return found

@@ -14,6 +14,8 @@ dist/
 .lake/
 leanpkg.path
 *.olean
+# Generated A3 candidate files (per-run, outside the lib tree; only reviewed fixtures are committed)
+lean_workspace/.a3-candidates/
 
 # Environments and secrets
 .env

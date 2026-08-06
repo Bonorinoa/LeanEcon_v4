@@ -22,5 +22,7 @@ jobs:
       - name: Run acceptance tests
         run: python -m pytest -v
 
-      - name: Assert runner imports cleanly (no workspace required)
-        run: python -c "import leanecon.a1_runner; print('a1 runner import OK')"
+      - name: Assert runners import cleanly (no workspace required)
+        run: |
+          python -c "import leanecon.a1_runner; print('a1 runner import OK')"
+          python -c "import leanecon.a3_runner; print('a3 runner import OK')"

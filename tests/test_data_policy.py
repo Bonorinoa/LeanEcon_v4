@@ -74,6 +74,22 @@ def test_sealed_gold_denied_even_when_classified_project():
     assert "sealed_gold" in decision.detail
 
 
+def test_gold_marker_inside_string_value_is_denied():
+    """Evaluation integrity: a pasted gold statement in claim TEXT (not a
+    structured key) must be denied too (Gate 5 hardening)."""
+    payload = {"prompt": "interpret: the sealed_gold theorem stub answer is x"}
+    decision = evaluate(payload, "PROJECT")
+    assert decision.allowed is False
+    assert decision.reason_code == "INPUT_REJECTED"
+    assert "sealed_gold" in decision.detail
+
+
+def test_ordinary_prose_does_not_false_positive():
+    payload = {"prompt": "the answer is clearly visible to the reviewer"}
+    decision = evaluate(payload, "PROJECT")
+    assert decision.allowed is True
+
+
 def test_hidden_labels_and_v3_hidden_material_denied():
     for marker in ("hidden_label", "gold_answer", "v3_hidden_eval", "answer_key"):
         decision = evaluate({"prompt": "x", marker: "secret-stuff"}, "PROJECT")
