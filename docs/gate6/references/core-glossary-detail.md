@@ -1,10 +1,28 @@
 # Core glossary — full entries (seed from c1–c4)
 
-> Registry for the Gate 6 reviewed glossary. Entries are seeded ONLY from
-> reviewed artifacts: accepted EIs (rev-2 of c1–c4), mapping reports
-> (`artifacts/local/a3/formal/c{1..4}/rev-1.json`), and the CTO-approved
-> claim texts (a3-design.md Appendix A). Detail backing the compact index
-> in `../a3-core-design.md` §2.
+> **Registry v1.0.0** — first versioned release (2026-08-06, Gate 6 P3).
+> This registry is the **single source of truth** for reviewed glossary
+> terms. The EI's `context.definitions` remain per-claim copies used as
+> source anchors: immutable per EI revision, they seed entries here and
+> never drift independently. The compact index in `../a3-core-design.md`
+> §2 is the design-time snapshot this registry supersedes.
+>
+> Versioning: **entry additions = minor** (v1.x, no downstream re-review);
+> **meaning changes = major** (v2.0) and require downstream re-review of
+> every claim citing the changed term. Status moves (promotions up the
+> ladder) are recorded in the change log, not a version bump. See the
+> change log below.
+>
+> Entries are seeded ONLY from reviewed artifacts: accepted EIs (rev-2 of
+> c1–c4), mapping reports (`artifacts/local/a3/formal/c{1..4}/rev-1.json`),
+> and the CTO-approved claim texts (a3-design.md Appendix A). Detail
+> backing the compact index in `../a3-core-design.md` §2.
+
+## Change log
+
+| Version | Date | Change | Kind |
+|---|---|---|---|
+| v1.0.0 | 2026-08-06 | Initial release: 28 entries seeded from c1–c4 + fwt1. P2 promotions reflected: entries 1, 6, 7, 9, 12, 13 moved **core-candidate → core** (DECISION_LOG item 20; per-declaration approval records `P2_REVIEW_BATCH.md` §6; merged PR #8). Equilibrium family (21–28) stays glossary-only/core-candidate — declarations deferred to the Gate 7 slice. | initial |
 
 ## Ontology-record template (per promoted declaration)
 
@@ -37,8 +55,8 @@ promotion:     Gate 6 promotion criteria checklist + CTO approval ref (once prom
 - **Source:** c2 `context.definitions[0]` ("weak_preference"); object
   `weak_preference_relation`.
 - **Aliases:** `preferenceRelation` (ontology ref c1/c2).
-- **Status:** core-candidate.
-- **Promotion:** first batch (§7 of the design).
+- **Status:** **core** (promoted — P2 batch, DECISION_LOG item 20, PR #8).
+- **Promotion:** approved 2026-08-06 (all 7 criteria; approval record `P2_REVIEW_BATCH.md` §6).
 
 ### 2. `transitivity`
 - **Economic view:** if A ≽ B and B ≽ C then A ≽ C — the rationality axiom
@@ -81,8 +99,8 @@ promotion:     Gate 6 promotion criteria checklist + CTO approval ref (once prom
 - **Examples:** c3 domain `n → ℝ` with `Fintype n`; c1 fixture `abbrev
   Bundle := ℝ`.
 - **Source:** c1/c3 objects (`bundle`/`consumption_bundle` roles).
-- **Status:** core-candidate (Open Q1: exact family).
-- **Promotion:** first batch.
+- **Status:** **core** (promoted — P2 batch, DECISION_LOG item 20, PR #8).
+- **Promotion:** approved 2026-08-06 (all 7 criteria; approval record `P2_REVIEW_BATCH.md` §6).
 
 ### 7. `budget-set`
 - **Economic view:** the set of bundles a consumer can afford given
@@ -94,8 +112,8 @@ promotion:     Gate 6 promotion criteria checklist + CTO approval ref (once prom
 - **Examples:** c1's `feasible_budget_set`; expansion `Bold ⊆ Bnew`.
 - **Source:** c1 definition `feasible_budget_set`; ontology ref
   `budget_constraint`.
-- **Status:** core-candidate.
-- **Promotion:** first batch.
+- **Status:** **core** (promoted — P2 batch, DECISION_LOG item 20, PR #8).
+- **Promotion:** approved 2026-08-06 (all 7 criteria; approval record `P2_REVIEW_BATCH.md` §6).
 
 ### 8. `budget-expansion`
 - **Economic view:** the feasible set grows: `Bold ⊆ Bnew` (income rise,
@@ -117,9 +135,10 @@ promotion:     Gate 6 promotion criteria checklist + CTO approval ref (once prom
 - **Assumptions:** recorded reading + filter variant.
 - **Source:** c1 definition `attainable_set`; object role `solution_set`;
   c1 ambiguity "Definition of 'attainable set'".
-- **Status:** core-candidate — **the entry that proves the glossary
-  carries semantic decisions, not just names.**
-- **Promotion:** first batch.
+- **Status:** **core** (promoted — P2 batch, DECISION_LOG item 20, PR #8) —
+  **the entry that proves the glossary carries semantic decisions, not
+  just names.**
+- **Promotion:** approved 2026-08-06 (all 7 criteria; approval record `P2_REVIEW_BATCH.md` §6).
 
 ### 10. `preferences-unchanged`
 - **Economic view:** the preference relation is fixed over the relevant
@@ -148,8 +167,8 @@ promotion:     Gate 6 promotion criteria checklist + CTO approval ref (once prom
 - **Examples:** c3 `u : (n → ℝ) → ℝ`; c4 `f : ℝ → ℝ`.
 - **Source:** c3 definition `utility_function`; object `u` (role
   `utility_function`).
-- **Status:** core-candidate.
-- **Promotion:** first batch.
+- **Status:** **core** (promoted — P2 batch, DECISION_LOG item 20, PR #8).
+- **Promotion:** approved 2026-08-06 (all 7 criteria; approval record `P2_REVIEW_BATCH.md` §6).
 
 ### 13. `strictly-increasing-utility`
 - **Economic view:** componentwise ≥ (with at least one strict
@@ -163,8 +182,8 @@ promotion:     Gate 6 promotion criteria checklist + CTO approval ref (once prom
 - **Assumptions:** componentwise reading (recorded decision).
 - **Source:** c3 definition `strictly_increasing_utility`; degradation
   flag `ambiguity_in_strictly_increasing_definition`.
-- **Status:** core-candidate.
-- **Promotion:** first batch.
+- **Status:** **core** (promoted — P2 batch, DECISION_LOG item 20, PR #8).
+- **Promotion:** approved 2026-08-06 (all 7 criteria; approval record `P2_REVIEW_BATCH.md` §6).
 
 ### 14. `componentwise-comparison`
 - **Economic view:** x ≥ y componentwise means x_i ≥ y_i for all i.
@@ -319,12 +338,12 @@ promotion:     Gate 6 promotion criteria checklist + CTO approval ref (once prom
 | fwt1 first welfare theorem | 6, 7, 11, 12, 20, 21–28 (equilibrium family) | none |
 
 The five VERIFIED claim families exercise 28 distinct vocabulary items:
-6 are core-candidates in the first promotion batch (1, 6, 7, 9, 12, 13),
-3 more are core-candidates deferred to the Gate 7 slice (25, 26, 27),
-7 are mathlib references, and the remaining 12 are glossary-only
-conditions/roles. This is the EI acceptance test in operational form: the
-frame + glossary can carry confident review of the canonical claims
-**and** a real theorem (fwt1).
+6 were **promoted to core** in the first batch (1, 6, 7, 9, 12, 13 — P2,
+DECISION_LOG item 20, PR #8), 3 are core-candidates deferred to the Gate 7
+slice (25, 26, 27), 7 are mathlib references, and the remaining 12 are
+glossary-only conditions/roles. This is the EI acceptance test in
+operational form: the frame + glossary can carry confident review of the
+canonical claims **and** a real theorem (fwt1).
 
 **Attribution:** Prepared by Hermes Agent (Nous Research) under CTO
 direction; the CTO remains the sole semantic approver.
