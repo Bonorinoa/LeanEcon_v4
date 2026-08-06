@@ -93,3 +93,27 @@ def test_unpinned_workspace_identity_fails_check_7(tmp_path):
     (bundle_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     checks = validate_bundle(store, bundle_id, claim)
     assert not dict((c[0], c[1]) for c in checks)["7_pinned_workspace"]
+
+
+def test_zero_axiom_bundle_passes_without_axiom_record(tmp_path):
+    """Live-walkthrough finding: a theorem using no axioms needs no approval
+    record — check 6 passes vacuously."""
+    store = ArtifactStore(tmp_path)
+    claim = ClaimRecord(claim_id="c1", revision=1, source_text="claim", data_class="PROJECT")
+    store.save_claim(claim)
+    ei = store.write_ei("c1", {"claim": {"canonical_text": "x"}, "review": {"decision": "APPROVED"}}, status="accepted")
+    formal = store.write_formal("c1", {"statement_text": "theorem t : True", "target_theorem": "t",
+                                       "imports": [], "gaps": []}, status="current")
+    verification = _verified_verification()
+    verification["axiom_list"] = []  # zero axioms
+    bundle_id, _ = build_bundle(
+        store=store, claim=claim, ei_artifact=ei, formal_artifact=formal, proof_source="theorem t : True := by trivial",
+        verification=verification,
+        approval_record={"decision": "APPROVED", "event_ref": "evt-approve"},
+        axiom_record=None,  # no approval needed
+        trace_refs=["claim:c1"], capability_snapshots={"lean_workspace": "HEALTHY"},
+        workspace_root=WORKSPACE, commands=["a3 verify --claim-id c1"],
+    )
+    checks = validate_bundle(store, bundle_id, claim)
+    assert dict((c[0], c[1]) for c in checks)["6_axiom_audit"] is True
+    assert bundle_result(checks) == "VERIFIED"

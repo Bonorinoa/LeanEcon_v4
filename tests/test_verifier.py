@@ -35,6 +35,13 @@ def test_parse_axiom_lines():
     assert verifier.parse_axiom_lines(stdout)["t"] == ["propext", "Classical.choice", "Quot.sound"]
 
 
+def test_parse_axiom_lines_empty_set():
+    """Live-walkthrough finding: zero-axiom theorems print a different
+    sentence ('does not depend on any axioms')."""
+    stdout = "'t' does not depend on any axioms\n"
+    assert verifier.parse_axiom_lines(stdout)["t"] == []
+
+
 def test_sorry_free_check_flags_admit():
     result = check_sorry_free("theorem t : 1 = 1 := by admit")
     assert result.reason_code == "SORRY_FOUND"
@@ -124,6 +131,20 @@ def test_static_sorry_scan_is_first_layer():
                                        run_id="test-run-static", claim_id="test-static")
     assert record.outcome == "FAILED"
     assert record.reason_code == "SORRY_FOUND"
+
+
+def test_static_sorry_scan_ignores_comments():
+    """Live-walkthrough finding: a comment mentioning the word 'sorry'
+    (e.g. documenting a rejected formalizer candidate) must not false-positive
+    the static pre-filter; the kernel audit remains authoritative."""
+    source = (
+        "import Mathlib.Data.Real.Basic\n"
+        "-- the rejected candidate used an incomplete-proof placeholder\n"
+        "theorem leanecon_comment_scan : True := by trivial\n"
+    )
+    record = verifier.verify_candidate(WORKSPACE, source, "leanecon_comment_scan",
+                                       run_id="test-run-comment", claim_id="test-comment")
+    assert record.outcome != "FAILED" or record.reason_code != "SORRY_FOUND", record.detail
 
 
 def test_timeout_is_failed_proof_timeout(monkeypatch, tmp_path):

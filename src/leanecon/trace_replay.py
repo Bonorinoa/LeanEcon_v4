@@ -61,9 +61,14 @@ def _replay_bundles(events: list[dict], store, problems: list[str]) -> list[dict
             all_pass = all(c[1] for c in checks)
             manifest = store.read_bundle_manifest(bundle_id)
             result = manifest.get("result")
-            # consistency rule: a VERIFIED bundle must pass all 11 checks; a
-            # FAILED/BLOCKED bundle must show at least one failing check.
-            consistent = (result == "VERIFIED") == all_pass
+            verification = store.read_json(store.root / "bundles" / bundle_id / "verification.json")
+            # consistency rule: the manifest result must match the verification
+            # record's own outcome, and a VERIFIED result additionally requires
+            # all 11 checks to pass. A FAILED bundle is a faithful record even
+            # when no single check encodes the failure reason (e.g. an
+            # audit-layer failure with a successful compile).
+            matches_record = result == verification.get("outcome")
+            consistent = matches_record and (result != "VERIFIED" or all_pass)
             bundles.append({
                 "bundle_id": bundle_id, "result": result, "ok": consistent,
                 "checks": [(c[0], c[1]) for c in checks],
@@ -72,7 +77,7 @@ def _replay_bundles(events: list[dict], store, problems: list[str]) -> list[dict
                 if result == "VERIFIED":
                     problems.append(f"bundle {bundle_id}: claims VERIFIED but checks fail: {[c[0] for c in checks if not c[1]]}")
                 else:
-                    problems.append(f"bundle {bundle_id}: result {result} but all 11 checks pass (inconsistent)")
+                    problems.append(f"bundle {bundle_id}: result {result} does not match verification outcome {verification.get('outcome')}")
         except Exception as exc:  # missing artifacts surface as replay problems
             problems.append(f"bundle {bundle_id}: replay error: {exc}")
     return bundles
