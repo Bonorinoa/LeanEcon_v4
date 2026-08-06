@@ -54,11 +54,36 @@ A3 proceeds only when A1 is fully green. B2 proceeds only when A3 is sound.
 - **Gate 3** closed: contracts, migration ledger, and trust boundaries —
   see [`docs/gate3/`](docs/gate3/) (review package) and
   [`references/gate3/`](references/gate3/).
-- **Gate 4 (A1)** in review: health-first diagnostics under
+- **Gate 4 (A1)** closed: health-first diagnostics under
   [`src/leanecon/`](src/leanecon/) with acceptance tests in
-  [`tests/`](tests/); evidence packet in
-  [`artifacts/a1/`](artifacts/a1/). No A3 workflow or LeanEcon Core yet —
-  those require separate design review and approval.
+  [`tests/`](tests/); all ten criteria green.
+- **Gate 5 (A3)** in review: design approved (`docs/gate5/a3-design.md`,
+  CTO 2026-08-06) and the minimal verified workflow implemented — staged,
+  uncommitted, awaiting CTO review. LeanEcon Core (Gate 6) and the B2 proof
+  loop remain out of scope.
+
+## A3 workflow CLI
+
+The verified workflow is driven by `python -m leanecon.a3_runner`:
+
+```text
+ingest        create a claim revision (DRAFT)
+interpret     run interpretation (live)            -> INTERPRETED -> REVIEW_REQUIRED
+review        reviewer decision: approve | reject  -> ACCEPTED | REJECTED
+formalize     run formalization (live)             -> FORMALIZED (or stays with gaps)
+gap-ack       reviewer acknowledges mapping gaps   (enables PROVING)
+axiom-approve reviewer approves the axiom list     (per-run reviewer record)
+verify        proof input -> PROVING -> VERIFIED | FAILED | BLOCKED (+ bundle)
+bundle        re-validate the current bundle (11-item checklist)
+replay        trace replay (deterministic validation)
+status        claim state and artifact references
+```
+
+Review commands require a reviewer identity (`--reviewer <id>` or
+`LEANECON_REVIEWER_ID`). Only a human reviewer may emit `ACCEPTED` or
+`REJECTED`; `VERIFIED` requires the complete verification bundle, not
+merely compilation. Live runs load credentials via
+`scripts_local/a3_walkthrough.py` (profile env, never printed).
 
 ## Credit & attribution
 

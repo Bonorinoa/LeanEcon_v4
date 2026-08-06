@@ -34,8 +34,9 @@ from leanecon.events import (
     EventLog,
 )
 from leanecon.providers import Capability, ProviderFailure
+from leanecon.repopath import find_repo_root
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = find_repo_root()
 WORKSPACE = REPO_ROOT / "lean_workspace"
 
 A1_GREEN_CRITERIA = {
