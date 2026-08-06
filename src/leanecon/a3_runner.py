@@ -568,6 +568,23 @@ def cmd_verify(args, store: ArtifactStore) -> int:
         capability_snapshots=snapshots, workspace_root=WORKSPACE,
         commands=[f"a3 verify --claim-id {claim.claim_id} --proof {args.proof}"],
     )
+
+    # The bundle validator gates VERIFIED (gate3/05): a kernel-verified record
+    # with an invalid bundle must NOT produce a VERIFIED claim state. Rebuild
+    # the manifest so the failure is self-consistent.
+    checks = validate_bundle(store, bundle_id, claim)
+    if state_after == "VERIFIED" and not all(ok for _, ok, _ in checks):
+        state_after = "FAILED"
+        failing = [c[0] for c in checks if not c[1]]
+        manifest = store.read_bundle_manifest(bundle_id)
+        manifest["result"] = "FAILED"
+        manifest["failure_reasons"] = ["bundle_validation_failed"]
+        manifest["sanity_checks"]["bundle_failing_checks"] = failing
+        (store.bundle_path(bundle_id) / "manifest.json").write_text(
+            json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        reason_codes = ()
+        print(f"  WARNING: kernel verified but bundle invalid: {failing} — state set to FAILED")
+
     _emit(log, Event(
         event_type=EVENT_VERIFICATION_COMPLETED,
         run_id=run_id, claim_id=claim.claim_id, state_before="PROVING", state_after=state_after,

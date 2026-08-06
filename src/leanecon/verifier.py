@@ -76,14 +76,63 @@ class VerificationRecord:
         }
 
 
+_AXIOM_LINE = re.compile(r"'([^']+)' depends on axioms: \[([^\]]*)\]")
+# Lean prints a different sentence when the axiom set is EMPTY:
+#   'name' does not depend on any axioms
+_NO_AXIOM_LINE = re.compile(r"'([^']+)' does not depend on any axioms")
+
+
 def parse_axiom_lines(stdout: str) -> dict[str, list[str]]:
-    """Parse '#print axioms' output: {theorem_name: [axiom, ...]}."""
+    """Parse '#print axioms' output: {theorem_name: [axiom, ...]}.
+
+    Handles BOTH formats: the bracket list for non-empty axiom sets and
+    Lean's 'does not depend on any axioms' sentence for the empty case
+    (live walkthrough finding: c1/c2 verify with zero axioms).
+    """
     found: dict[str, list[str]] = {}
     for match in _AXIOM_LINE.finditer(stdout):
         name = match.group(1).strip()
         axioms = [a.strip() for a in match.group(2).split(",") if a.strip()]
         found[name] = axioms
+    for match in _NO_AXIOM_LINE.finditer(stdout):
+        name = match.group(1).strip()
+        found[name] = []
     return found
+
+
+def _strip_lean_comments(source: str) -> str:
+    """Remove Lean comments for the static sorry pre-filter.
+
+    The static scan is a fast layer over text; a comment mentioning the word
+    'sorry' (e.g. documenting a rejected formalizer candidate) must not
+    false-positive. The kernel-level axiom audit remains the authoritative
+    check. Handles ``--`` line comments and ``/- ... -/`` block comments
+    (including multi-line blocks); string literals containing ``--`` are not
+    handled — an accepted approximation for a pre-filter.
+    """
+    out: list[str] = []
+    in_block = False
+    for line in source.splitlines():
+        if in_block:
+            end = line.find("-/")
+            if end == -1:
+                continue
+            line = line[end + 2 :]
+            in_block = False
+        while True:
+            start = line.find("/-")
+            if start == -1:
+                break
+            end = line.find("-/", start + 2)
+            if end == -1:
+                in_block = True
+                line = line[:start]
+                break
+            line = line[:start] + line[end + 2 :]
+        if "--" in line:
+            line = line.split("--", 1)[0]
+        out.append(line)
+    return "\n".join(out)
 
 
 def run_lake_env_lean(workspace_root: Path, source_path: Path, timeout_s: int) -> tuple:
@@ -147,7 +196,7 @@ def verify_candidate(
     compile_source = candidate_source + f"\n#print axioms {theorem_name}\n"
     candidate_path.write_text(compile_source, encoding="utf-8")
 
-    static = check_sorry_free(candidate_source)
+    static = check_sorry_free(_strip_lean_comments(candidate_source))
     static_sorry_ok = static.status is CapabilityStatus.HEALTHY
     if not static_sorry_ok:
         return VerificationRecord(

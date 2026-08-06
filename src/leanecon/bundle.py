@@ -205,7 +205,9 @@ def validate_bundle(store: ArtifactStore, bundle_id: str, claim) -> list[tuple[s
     # 6 axiom/dependency audit vs approval record
     approved = set(axiom_dict.get("approved_axioms", []))
     used = set(ver_dict.get("axiom_list", []))
-    audit_ok = bool(axiom_dict) and used <= approved
+    # A zero-axiom theorem needs no approval record (vacuous); otherwise the
+    # per-run reviewer record must cover every used axiom.
+    audit_ok = (not used) or (bool(axiom_dict) and used <= approved)
     checks.append(("6_axiom_audit", audit_ok, f"axioms {sorted(used)} within approved {sorted(approved)}"))
 
     # 7 pinned workspace identity
