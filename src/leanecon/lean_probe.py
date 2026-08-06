@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+from leanecon.data_policy import canonical_digest
 from leanecon.events import CapabilityStatus
 
 REASON_LEAN_SYNTAX_ERROR = "LEAN_SYNTAX_ERROR"
@@ -47,15 +48,40 @@ class ProbeResult:
 class WorkspaceIdentity:
     """Pinned workspace identity for the verification bundle: Lean toolchain
     and Mathlib revision. A missing pin is WORKSPACE_UNPINNED, never a
-    silent default."""
+    silent default. ``core_revision`` (D2) is the manifest digest of the
+    merged Core module tree — present only when a Core tree exists; claims
+    that import Core must record it (bundle check 12_core_pin).
+    """
 
     workspace_root: str
     lean_toolchain: Optional[str]
     mathlib_revision: Optional[str]
+    core_revision: Optional[str] = None
 
     @property
     def pinned(self) -> bool:
         return bool(self.lean_toolchain and self.mathlib_revision)
+
+
+def compute_core_revision(workspace_root: Path) -> Optional[str]:
+    """Manifest digest of the merged Core module tree (D2, a3-core-design.md §1.4).
+
+    SHA-256 over the sorted (relative path, content) pairs of every
+    ``LeanEcon/Core/**/*.lean`` module. Content-based so the pin tracks
+    actual Core changes, not unrelated commits; deterministic across
+    checkouts of the same tree. Returns None when no Core tree exists
+    (pre-Core claims need no pin).
+    """
+    core_dir = Path(workspace_root) / "LeanEcon" / "Core"
+    if not core_dir.is_dir():
+        return None
+    files = sorted(p.relative_to(core_dir).as_posix() for p in core_dir.rglob("*.lean"))
+    if not files:
+        return None
+    payload = "\n".join(
+        f"{rel}\n{core_dir.joinpath(rel).read_text(encoding='utf-8')}" for rel in files
+    )
+    return canonical_digest({"core_tree": payload})
 
 
 def read_workspace_identity(workspace_root: Path) -> WorkspaceIdentity:
@@ -71,7 +97,7 @@ def read_workspace_identity(workspace_root: Path) -> WorkspaceIdentity:
         match = re.search(r'"mathlib"\s*@\s*git\s+"([^"]+)"', text)
         if match:
             mathlib_rev = match.group(1)
-    return WorkspaceIdentity(str(root), toolchain or None, mathlib_rev)
+    return WorkspaceIdentity(str(root), toolchain or None, mathlib_rev, compute_core_revision(root))
 
 
 def probe_workspace(workspace_root: Path) -> ProbeResult:

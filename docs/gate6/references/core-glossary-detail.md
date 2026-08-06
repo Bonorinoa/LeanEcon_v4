@@ -22,6 +22,7 @@
 
 | Version | Date | Change | Kind |
 |---|---|---|---|
+| v1.1.0 | 2026-08-06 | Template addition (P4 D3): ontology-record template gains the `collision_check` review item (D3 mechanical check — a3-core-design.md §7 criterion 4). Additive; no entry meaning changed; no downstream re-review required. | minor (additive) |
 | v1.0.0 | 2026-08-06 | Initial release: 28 entries seeded from c1–c4 + fwt1. P2 promotions reflected: entries 1, 6, 7, 9, 12, 13 moved **core-candidate → core** (DECISION_LOG item 20; per-declaration approval records `P2_REVIEW_BATCH.md` §6; merged PR #8). Equilibrium family (21–28) stays glossary-only/core-candidate — declarations deferred to the Gate 7 slice. | initial |
 
 ## Ontology-record template (per promoted declaration)
@@ -32,6 +33,11 @@ economic_view: plain-language meaning, as reviewed
 formal_view:   Lean type/signature sketch + Mathlib reuse
 assumptions:   minimal assumptions; stronger/weaker variants
 axiom_audit:   expected axioms (baseline unless noted)
+collision_check: D3 review item (a3-core-design.md §7.4): the fully-qualified
+               name must not collide with any imported dependency's namespace,
+               and unqualified use in candidates must not shadow imported
+               Mathlib identifiers. Recorded per declaration at promotion
+               (mechanical aid proposal: docs/gate6/P4_REVIEW_BATCH.md §D3).
 examples:      example / counterexample where useful
 source:        EI definition id + claim id (anchor)
 aliases:       EI definition ids / ontology_refs collapsed into this entry

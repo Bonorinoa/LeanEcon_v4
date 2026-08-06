@@ -64,7 +64,7 @@ def _replay_bundles(events: list[dict], store, problems: list[str]) -> list[dict
             verification = store.read_json(store.root / "bundles" / bundle_id / "verification.json")
             # consistency rule: the manifest result must match the verification
             # record's own outcome, and a VERIFIED result additionally requires
-            # all 11 checks to pass. A FAILED bundle is a faithful record even
+            # all checks to pass. A FAILED bundle is a faithful record even
             # when no single check encodes the failure reason (e.g. an
             # audit-layer failure with a successful compile).
             matches_record = result == verification.get("outcome")
