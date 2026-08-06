@@ -41,3 +41,36 @@ Gate 3 is closed. The package is authorized for a docs-only commit. Gate 4 A1 ma
 **Attribution:** Prepared by Hermes Agent (Nous Research) under direction of the CTO. The CTO remains the sole semantic approver.
 
 **No implementation:** This package authorizes only the Gate 3 documentation commit. It does not authorize A3, LeanEcon Core implementation, full outbound policy, or production `VERIFIED` claims.
+
+---
+
+# Gate 6 — LeanEcon Core design and implementation plan (CLOSED 2026-08-06)
+
+**Status:** Gate 6 closed by CTO approval; design package approved as
+proposed; the EI schema is frozen; the implementation plan is authorized
+with per-phase CTO gates. The fwt1 live test (First Welfare Theorem,
+VERIFIED end-to-end) is part of the package evidence.
+
+| # | Item | CTO disposition | Package state |
+|---|---|---|---|
+| 15 | Core design (`docs/gate6/a3-core-design.md`) | Approved as proposed; contract deltas D1–D4 adopted (fully-qualified `core` rows; Core pin in bundle; namespace collision check; namespace-scoped scaffolding); open questions resolved per §8 | **LOCKED — DESIGN APPROVED** |
+| 16 | EI schema freeze (`references/gate3/ei_schema_draft.json`) | Exercised draft frozen as normative `1.0.0` (`none_noted`, nullable `review.reviewer`/`event_ref` while PENDING, `acknowledges_none_noted`); `$comment` freeze note added | **FROZEN — 1.0.0** |
+| 17 | Glossary registry (`references/core-glossary-detail.md`) | Approved; 28 entries seeded from c1–c4 + fwt1; equilibrium-family entries (21–28) glossary-only/core-candidate, declarations deferred to Gate 7 | **LOCKED** |
+| 18 | Implementation plan (`docs/gate6/IMPLEMENTATION_PLAN.md`) | Approved; P1–P5 with per-phase CTO gates; P1 (docs-only schema-freeze commit) is the next action | **AUTHORIZED — PLAN** |
+| 19 | fwt1 live test (`references/fwt1-test-record.md`) | VERIFIED end-to-end (bundle-fwt1-r1-35615e); formalizer failed structurally — reviewer-in-the-loop confirmed load-bearing; equilibrium vocabulary added as glossary-only meanings | **EVIDENCE** |
+
+## Resolutions incorporated in this amendment
+
+- The mapping report's `core` rows carry fully-qualified identifiers (D1);
+  the bundle records the Core revision (D2); Core promotion includes a
+  Mathlib namespace-collision check (D3); A3-local scaffolding is
+  namespace-scoped (D4).
+- No equilibrium-family declarations before the Gate 7 slice; no B2 proof
+  loop, corpus work, or release artifacts in Gate 6.
+- v3 Core-adjacent material stays `rebuild`/`inspiration`/
+  `historical-discard`; no `import`/`adapt` exceptions.
+
+**No implementation beyond the plan:** P1 (schema-freeze docs commit/PR)
+may begin; P2 (first Core promotion batch, 6 declarations + 2 theorem
+boundaries) begins only after P1 merge and the per-declaration review
+gates.

@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://leanecon.org/schemas/economic-interpretation/1.0.0",
+  "$comment": "FROZEN 2026-08-06 by Gate 6 CTO approval (DECISION_LOG.md item 16). Normative EconomicInterpretation contract v1.0.0. The draft was exercised live by Gate 5 A3 (claims c1-c4) and the fwt1 First Welfare Theorem test: none_noted, nullable review.reviewer/event_ref while PENDING, and review.acknowledges_none_noted are live-tested and frozen as part of 1.0.0 (no prior frozen version exists). Versioning: additive optional fields = minor; removing/renaming fields, changing meaning or requiredness = major (new $id).",
   "title": "EconomicInterpretation",
   "type": "object",
   "additionalProperties": false,
