@@ -17,6 +17,7 @@ All items are required unless the CTO records a written waiver. A waiver changes
 9. **Trace links** — claim revision ↔ approval ↔ formalization ↔ proving attempt ↔ verification event ↔ bundle.
 10. **State-dependent metadata** — capability status, budgets, compiler result, sanity checks, and relevant limitations.
 11. **Reproducible manifest** — inputs, versions, timestamps, builder identity, commands/entrypoint, and environment/container digest where applicable.
+12. **Core pin (additive, Gate 6 P4 — D2)** — when the candidate or proof imports `LeanEcon.Core.*`, `workspace_identity.core_revision` (manifest digest of the merged Core module tree) must be recorded and match the workspace; a Core-importing bundle without the pin (or with a stale one) fails validation. Pre-Core claims (no Core imports) need no pin. See `docs/gate6/references/data-flow-model.md` §5 and DECISION_LOG items 15/23.
 
 The proven or failed input statement remains available for audit. Sensitive provider payloads are not retained by default; digests and policy metadata are retained.
 

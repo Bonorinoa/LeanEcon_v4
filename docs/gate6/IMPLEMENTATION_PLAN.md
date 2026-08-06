@@ -1,10 +1,16 @@
 # Gate 6 — LeanEcon Core implementation plan
 
-> Status: plan only — **no implementation authorized by this document**.
-> Prepared 2026-08-06 alongside the final-polish design package
-> (`a3-core-design.md` + `references/`). Execution begins only after CTO
-> approval of the design, the open-question resolutions, and this plan.
-> Every phase stops for CTO review.
+> Status: **P1–P4 executed and merged (2026-08-06)** — P1 schema freeze
+> (PR #7), P2 first Core batch (PR #8), P3 glossary registry v1 (PR #9),
+> P4 A3 contract deltas D1/D2/D4 (PR #10; 156 tests green). **P5
+> (clean-clone + exit evidence) is the remaining phase.** Every phase
+> stops for CTO review; execution records: DECISION_LOG items 20–24 and
+> the per-phase review packages (`P2_REVIEW_BATCH.md`,
+> `P4_REVIEW_BATCH.md`).
+>
+> Originally: plan only — no implementation authorized by this document
+> until CTO approval of the design, the open-question resolutions, and
+> this plan.
 
 ## 0. Scope and boundaries
 
