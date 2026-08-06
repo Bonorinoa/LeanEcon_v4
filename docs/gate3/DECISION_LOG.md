@@ -74,3 +74,27 @@ VERIFIED end-to-end) is part of the package evidence.
 may begin; P2 (first Core promotion batch, 6 declarations + 2 theorem
 boundaries) begins only after P1 merge and the per-declaration review
 gates.
+
+---
+
+# P2 — First Core promotion batch (APPROVED 2026-08-06)
+
+**Status:** P2 batch approved by the CTO as proposed (verdicts D1–D6);
+per-declaration approval records in `docs/gate6/P2_REVIEW_BATCH.md` §6.
+The batch compiles in the pinned workspace with baseline axiom closures.
+
+| # | Item | CTO disposition | Package state |
+|---|---|---|---|
+| 20 | P2 batch: `bundle`, `weakPreference`, `budgetSet`, `attainableSet`, `utility`, `strictlyIncreasing` + theorem boundaries `budgetExpansion_nonShrinking` (c1), `strictlyIncreasing_strictPref` (c3) | Approved as proposed (D1–D6); per-declaration approval records recorded | **PROMOTED — BATCH APPROVED** |
+| 21 | P2 commit/PR (Core modules + review package) | Commit follows this approval; CI gates + merge flow per the established procedure | **PENDING COMMIT** |
+
+Resolutions incorporated:
+
+- `budgetSet` is income-form only; the endowment-relative form is
+  recoverable and deferred to the Gate 7 equilibrium slice (D2).
+- `strictlyIncreasing` uses the strong componentwise reading and the c3
+  direction convention (D3).
+- Module layout: six area modules; no empty Equilibrium module (D4).
+- `weakPreference`/`utility` approved as vocabulary-anchor aliases (D5).
+- No equilibrium-family declarations, no demand/choice correspondences, no
+  A3 code changes in this batch (P4).
