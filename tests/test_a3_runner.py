@@ -17,6 +17,7 @@ from leanecon.claim_store import ArtifactStore, ClaimRecord
 from leanecon.providers import ProviderFailureKind
 from tests.conftest import (
     FIXTURES,
+    WORKSPACE,
     complete_mapping_report,
     elan_on_path,  # noqa: F401
     formalize_output,
@@ -25,6 +26,18 @@ from tests.conftest import (
 from tests.test_verifier import requires_workspace
 
 C1_THEOREM = "leanecon_c1_attainable_monotone"
+
+
+@pytest.fixture(autouse=True)
+def _fast_probe(monkeypatch):
+    """Keep mocked formalize runs fast and CI-deterministic: the statement
+    compile probe is a real `lake env lean` call; unit tests don't need it.
+    The probe itself has a dedicated real-workspace test in test_verifier.py."""
+    monkeypatch.setattr(
+        a3_runner, "probe_statement_compiles",
+        lambda *a, **k: {"compiles": True, "exit_code": 0, "stderr_tail": ""},
+    )
+    yield
 
 
 def _args(tmp_path, **kwargs) -> Namespace:
@@ -135,12 +148,13 @@ def test_mapping_gaps_block_proving(tmp_path):
         return formalize_output(f"theorem {C1_THEOREM} : True", C1_THEOREM, report)
 
     adapter = FakeAdapter(formalize_factory=factory)
-    state, candidate = a3_runner.formalize_claim(claim, store, log, run_id, adapter)
+    state, candidate = a3_runner.formalize_claim(claim, store, log, run_id, adapter, WORKSPACE)
     claim.state = state
     claim.formal_rev = store.formal_revs("c-gap")[-1]
     store.save_claim(claim)
     assert state == "FORMALIZED"
-    assert candidate["gaps"]
+    assert candidate is not None and candidate["gaps"]
+    assert candidate["gaps"][0]["classification"] == "unmapped_with_note"
 
     # verify must be refused while gaps are unacknowledged
     with pytest.raises(SystemExit):
@@ -189,12 +203,12 @@ def test_full_walkthrough_verified_with_axiom_loop(tmp_path, elan_on_path):
 
     run_id2, log2 = a3_runner._new_run(events_dir)
     adapter2 = FakeAdapter(formalize_factory=factory)
-    state, candidate = a3_runner.formalize_claim(claim, store, log2, run_id2, adapter2)
+    state, candidate = a3_runner.formalize_claim(claim, store, log2, run_id2, adapter2, WORKSPACE)
     claim.state = state
     claim.formal_rev = store.formal_revs("c1")[-1]
     store.save_claim(claim)
     assert state == "FORMALIZED"
-    assert not candidate["gaps"]
+    assert candidate is not None and not candidate["gaps"]
 
     # 4. first verify attempt: no axiom record -> AXIOM_VIOLATION (honest loop)
     proof = str(FIXTURES / "c1_attainable.lean")
@@ -271,3 +285,164 @@ def test_malformed_interpret_output_is_failed(tmp_path):
     claim.state = state
     store.save_claim(claim)
     assert state == "FAILED"
+
+
+def test_formalize_rejects_statement_with_sorry(tmp_path):
+    """Walkthrough hardening: a formalizer statement carrying sorry/admit or
+    an attached proof body is a hard contract violation — FAILED with
+    PROVIDER_INVALID_OUTPUT, and NO formal artifact is written."""
+    store = ArtifactStore(tmp_path)
+    claim = ClaimRecord(claim_id="c-sorry", revision=1, source_text="claim", data_class="PROJECT")
+    store.save_claim(claim)
+    store.write_ei("c-sorry", valid_ei(), status="accepted")
+    claim.state = "ACCEPTED"
+    claim.accepted_ei_rev = store.ei_revs("c-sorry")[-1]
+    store.save_claim(claim)
+    events_dir = tmp_path / "events"
+    run_id, log = a3_runner._new_run(events_dir)
+    from tests.conftest import FakeAdapter
+
+    def factory():
+        return formalize_output(f"theorem {C1_THEOREM} : True := by sorry", C1_THEOREM)
+
+    state, candidate = a3_runner.formalize_claim(claim, store, log, run_id,
+                                                 FakeAdapter(formalize_factory=factory), WORKSPACE)
+    assert state == "FAILED"
+    assert candidate is None
+    assert store.formal_revs("c-sorry") == []
+    records = [json.loads(l) for p in (tmp_path / "events").glob("*.jsonl") for l in p.read_text().splitlines() if l.strip()]
+    assert any(r.get("reason_codes") == ["PROVIDER_INVALID_OUTPUT"] and
+               "statement_problems" in r.get("detail", {}) for r in records)
+
+
+def test_formalize_requires_force_for_reformulation(tmp_path):
+    store = ArtifactStore(tmp_path)
+    claim = ClaimRecord(claim_id="c-f", revision=1, source_text="claim", data_class="PROJECT")
+    store.save_claim(claim)
+    store.write_ei("c-f", valid_ei(), status="accepted")
+    claim.state = "ACCEPTED"
+    claim.accepted_ei_rev = store.ei_revs("c-f")[-1]
+    store.save_claim(claim)
+    events_dir = tmp_path / "events"
+    run_id, log = a3_runner._new_run(events_dir)
+    from tests.conftest import FakeAdapter
+
+    adapter = FakeAdapter(formalize_factory=lambda: formalize_output(f"theorem t1 : True", "t1"))
+    state, _ = a3_runner.formalize_claim(claim, store, log, run_id, adapter, WORKSPACE)
+    claim.state = state
+    claim.formal_rev = store.formal_revs("c-f")[-1]
+    store.save_claim(claim)
+    assert state == "FORMALIZED"
+    revs_before = len(store.formal_revs("c-f"))
+
+    # without --force the CLI refuses
+    with pytest.raises(SystemExit, match="use --force"):
+        a3_runner.cmd_formalize(_args(tmp_path, claim_id="c-f", force=False), store)
+
+    # with --force a NEW formal revision supersedes (FORMALIZED -> FORMALIZED)
+    run_id2, log2 = a3_runner._new_run(events_dir)
+    state2, candidate2 = a3_runner.formalize_claim(claim, store, log2, run_id2,
+                                                   FakeAdapter(formalize_factory=lambda: formalize_output("theorem t2 : True", "t2")),
+                                                   WORKSPACE)
+    claim.state = state2
+    claim.formal_rev = store.formal_revs("c-f")[-1]
+    store.save_claim(claim)
+    assert state2 == "FORMALIZED"
+    assert len(store.formal_revs("c-f")) == revs_before + 1
+    assert candidate2 is not None and candidate2["target_theorem"] == "t2"
+    formal = store.read_formal("c-f", store.formal_revs("c-f")[-1])
+    assert formal["target_theorem"] == "t2"
+
+
+def test_formalize_rejection_keeps_previous_rev(tmp_path):
+    """Walkthrough finding: a rejected candidate (PROVIDER_INVALID_OUTPUT)
+    writes NO artifact — the claim goes FAILED, cmd_formalize must not crash
+    on the empty revision list, and the previous formal_rev is preserved."""
+    store = ArtifactStore(tmp_path)
+    claim = ClaimRecord(claim_id="c-keep", revision=1, source_text="claim", data_class="PROJECT")
+    store.save_claim(claim)
+    store.write_ei("c-keep", valid_ei(), status="accepted")
+    claim.state = "ACCEPTED"
+    claim.accepted_ei_rev = store.ei_revs("c-keep")[-1]
+    store.save_claim(claim)
+    events_dir = tmp_path / "events"
+    run_id, log = a3_runner._new_run(events_dir)
+    from tests.conftest import FakeAdapter
+
+    # a first successful formalization establishes a formal_rev
+    state, _ = a3_runner.formalize_claim(
+        claim, store, log, run_id,
+        FakeAdapter(formalize_factory=lambda: formalize_output("theorem t1 : True", "t1")), WORKSPACE)
+    claim.state = state
+    claim.formal_rev = store.formal_revs("c-keep")[-1]
+    store.save_claim(claim)
+    assert claim.formal_rev is not None
+
+    # the second attempt is rejected -> FAILED, previous rev kept
+    state, candidate = a3_runner.formalize_claim(
+        claim, store, log, run_id,
+        FakeAdapter(formalize_factory=lambda: formalize_output("theorem t2 : True := by sorry", "t2")),
+        WORKSPACE)
+    claim.state = state
+    store.save_claim(claim)
+    assert state == "FAILED"
+    assert candidate is None
+    assert claim.formal_rev is not None  # previous reference intact
+    assert len(store.formal_revs("c-keep")) == 1  # no new artifact
+
+
+def test_formalize_retry_from_failed(tmp_path):
+    """A claim FAILED by a rejected candidate can retry formalization
+    (FAILED -> FORMALIZED lifecycle edge)."""
+    store = ArtifactStore(tmp_path)
+    claim = ClaimRecord(claim_id="c-retry", revision=1, source_text="claim", data_class="PROJECT")
+    store.save_claim(claim)
+    store.write_ei("c-retry", valid_ei(), status="accepted")
+    claim.state = "FAILED"
+    claim.accepted_ei_rev = store.ei_revs("c-retry")[-1]
+    store.save_claim(claim)
+    events_dir = tmp_path / "events"
+    run_id, log = a3_runner._new_run(events_dir)
+    from tests.conftest import FakeAdapter
+
+    state, candidate = a3_runner.formalize_claim(
+        claim, store, log, run_id,
+        FakeAdapter(formalize_factory=lambda: formalize_output("theorem t3 : True", "t3")), WORKSPACE)
+    claim.state = state
+    claim.formal_rev = store.formal_revs("c-retry")[-1]
+    store.save_claim(claim)
+    assert state == "FORMALIZED"
+    assert candidate is not None and candidate["target_theorem"] == "t3"
+
+
+def test_formalize_probe_and_vacuity_recorded(tmp_path, monkeypatch):
+    """The compile probe and vacuity warning are evaluation signals recorded
+    in the formal artifact (and surfaced by cmd_formalize)."""
+    store = ArtifactStore(tmp_path)
+    claim = ClaimRecord(claim_id="c-pv", revision=1, source_text="claim", data_class="PROJECT")
+    store.save_claim(claim)
+    store.write_ei("c-pv", valid_ei(), status="accepted")
+    claim.state = "ACCEPTED"
+    claim.accepted_ei_rev = store.ei_revs("c-pv")[-1]
+    store.save_claim(claim)
+    events_dir = tmp_path / "events"
+    run_id, log = a3_runner._new_run(events_dir)
+    from tests.conftest import FakeAdapter
+
+    # vacuous statement: conclusion restates a hypothesis
+    statement = f"theorem {C1_THEOREM} (h : P) : P"
+    monkeypatch.setattr(a3_runner, "probe_statement_compiles",
+                        lambda *a, **k: {"compiles": False, "exit_code": 1, "stderr_tail": "boom"})
+    state, candidate = a3_runner.formalize_claim(
+        claim, store, log, run_id,
+        FakeAdapter(formalize_factory=lambda: formalize_output(statement, C1_THEOREM)), WORKSPACE)
+    claim.state = state
+    claim.formal_rev = store.formal_revs("c-pv")[-1]
+    store.save_claim(claim)
+    assert state == "FORMALIZED"
+    assert candidate is not None
+    assert candidate["statement_probe"]["compiles"] is False
+    assert "vacuity" in (candidate["vacuity_warning"] or "").lower()
+    formal = store.read_formal("c-pv", store.formal_revs("c-pv")[-1])
+    assert formal["statement_probe"]["compiles"] is False
+    assert formal["vacuity_warning"]
