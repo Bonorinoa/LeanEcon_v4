@@ -154,3 +154,37 @@ Resolutions incorporated:
 - No v3 material copied into `LeanEcon/Core/**`; no IMPORT/ADAPT
   exceptions; equilibrium-family declarations remain glossary-only until
   the Gate 7 slice (per-declaration CTO promotion).
+
+---
+
+# Gate 7 — Equilibrium-family Core batch (APPROVED 2026-08-06)
+
+**Status:** Gate 7 equilibrium-family batch approved by the CTO as
+proposed (slice D1–D9 tabled in-session; review package
+`docs/gate7/G7_REVIEW_BATCH.md`). All Lean compiled before review
+(verbatim kernel evidence; baseline axiom closure on the theorem AND all
+four defs); 9/9 expectations confirmed; pytest 156 green. This closes P5
+exit-packet open item 1 (equilibrium-family declarations).
+
+| # | Item | CTO disposition | Package state |
+|---|---|---|---|
+| 26 | Gate 7 batch: `budgetSetEndowment` (Constraints), `marketClearing`, `competitiveEquilibrium`, `paretoEfficiency` (new Equilibrium module), theorem boundary `competitiveEquilibrium_paretoEfficient` (Theorems, fwt1 family) | Approved as proposed; per-declaration approval records `G7_REVIEW_BATCH.md` §8 | **PROMOTED — BATCH APPROVED** |
+| 27 | Gate 7 commit/PR (Core modules + review package + registry change-log rows) | Commit follows this approval; CI gates + merge flow per the established procedure | **PENDING COMMIT/PR** |
+
+Resolutions incorporated:
+
+- `budgetSetEndowment` lands the P2-D2-deferred endowment-relative form as
+  a dedicated declaration in Constraints (D3); definitionally the
+  documented recovery `budgetSet p (∑ g, p g * e g)`.
+- `competitiveEquilibrium` uses the direct utility-maximization reading
+  (D2); `[Nonempty Agent]` lives on the theorem, not the definition (D4 —
+  the fwt1 semantic gap carried into Core explicitly, matching the fwt1
+  proof header).
+- `utilityMaximization` (entry 28) stays glossary-only, folded into
+  `maximizes` (D5).
+- Registry: entries 25/26/27 core-candidate → core (change-log rows, no
+  version bump); entry 7 variant note updated; entries 21–24 stay
+  glossary-only (realized as types — no declarations proposed).
+- No tooling deltas (D9): D3 CI grep, verify-side scaffolding signal,
+  `mapping_kind: none` removal all deferred as recorded in
+  `P4_REVIEW_BATCH.md`.
