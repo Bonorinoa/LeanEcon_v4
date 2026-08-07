@@ -130,3 +130,27 @@ Resolutions incorporated:
   regression test `test_validate_statement_text_allows_definitional_body`.
 - No verify-side scaffolding check, no `mapping_kind: none` removal, no
   Core-importing claim run (P5 evidence), no equilibrium declarations.
+
+---
+
+# P5 — Gate 6 exit package (APPROVED 2026-08-06 — GATE 6 CLOSED)
+
+**Status:** Gate 6 closed by CTO approval of the P5 exit package. All
+exit criteria met (clean-clone reproduction green, ledger complete, no v3
+copy, ontology–declaration agreement, live Core-import verification).
+
+| # | Item | CTO disposition | Package state |
+|---|---|---|---|
+| 25 | P5 exit package: clean-clone reproduction (`lake build LeanEcon.Core.*` = 3002 jobs, pytest 156 green in a fresh clone), Core-specific ledger register K1–K6 (Preamble rebuild/inspiration, scratch + benchmarks + theorem-stub claim sets historical-discard, `preamble_library.py` rebuild/inspiration, v3 docs historical), ontology–declaration agreement check (PASSED), live Core-import verification closing the D2 risk-register loop (baseline axiom closure; `12_core_pin` passes on a real digest), exit evidence packet (`docs/gate6/P5_EXIT_PACKAGE.md`) | Approved; **Gate 6 CLOSED** — Gate 7 (equilibrium-family declarations, per-declaration promotion) authorized as the next slice | **CLOSED** |
+
+Resolutions incorporated:
+
+- Clean-clone reproduction is reproducible via
+  `scripts_local/clean_clone_check.sh` (python 3.11 baseline; mathlib
+  from source on this machine; `-- -j4` for the memory-heavy tail).
+- The `import Mathlib` probe contract requires the complete Mathlib build
+  (`Mathlib.olean`), not just the Core closure — recorded in the packet
+  and the skill.
+- No v3 material copied into `LeanEcon/Core/**`; no IMPORT/ADAPT
+  exceptions; equilibrium-family declarations remain glossary-only until
+  the Gate 7 slice (per-declaration CTO promotion).

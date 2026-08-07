@@ -38,6 +38,29 @@ The ledger is a governance record, not a copy list. Every v3 class is treated as
 | X1 | `.codebase-memory/` | Generated graph/index state | HISTORICAL-DISCARD | Never enters v4 | Do not migrate; no dependency or release use |
 | X2 | Generated/cache/secrets candidates | Build output, caches, credentials, transient payloads | HISTORICAL-DISCARD | None; retain only in frozen v3 if needed | Never migrate or stage; secret scanning and artifact exclusion tests |
 
+## Core-specific disposition register (Gate 6 P5)
+
+Operationalizes the Core-specific slice of the approved design
+(`docs/gate6/a3-core-design.md` §6; approved DECISION_LOG item 15) into the
+ledger. No `IMPORT`/`ADAPT` exceptions. All rows are the plan defaults
+(E2-1); dispositions approved with the design — the ledger records them for
+the Gate 6 exit evidence (plan §6.2).
+
+| ID | Artifact class / frozen evidence | Observed scope | Disposition | v4 destination | Boundary and required tests |
+|---|---|---|---|---|---|
+| K1 | v3 Preamble: `lean_workspace/LeanEcon/Preamble/**` (Foundations, Preferences, Optimization, GameTheory, GeneralEquilibrium, Macroeconomics) | Custom v3 Lean modules | REBUILD (scope taxonomy: INSPIRATION) | Gate 6 Core namespace skeleton (§1.3); every v4 declaration authored first-principles | No v3 declaration copied; per-declaration CTO promotion record (P2 pattern); clean-clone `lake build LeanEcon.Core.*`; D3 collision check |
+| K2 | v3 scratch: `lean_workspace/LeanEcon/<uuid>.lean`, `local_gate_*.lean` | Generated ad-hoc candidate files | HISTORICAL-DISCARD | None | Never enters v4 runtime or Core; not referenced |
+| K3 | `src/preamble_library.py` | Python orchestration ("curated preamble" with meaning records) | REBUILD (concept: INSPIRATION) | Core ontology-record process (registry template + promotion records) | No v3 implementation copied; ontology records carry CTO approval refs |
+| K4 | `benchmark_baselines/v3_alpha/tier1_core.json` | Benchmark results | HISTORICAL-DISCARD | None | No v3 score is comparable or v4 release evidence (locked) |
+| K5 | `evals/claim_sets/tier1_core_preamble_definable.jsonl` | Claim set + theorem stubs (gold-shaped) | HISTORICAL-DISCARD (statement-shape: INSPIRATION) | None (no v4 runtime, Core, or corpus) | No gold/intended statement enters Core; reviewed-fixture format independently re-authored at Gate 5 |
+| K6 | v3 `docs/*` (evidence register, inventory, strategy) | Historical evidence | HISTORICAL | Retained as frozen evidence | Provenance references only; no wholesale prose/code copy |
+
+**Verification (P5.3, mechanical):** no v3 markers (`Preamble`, `local_gate_`,
+uuid-shaped names) inside `lean_workspace/LeanEcon/Core/**`; the Core tree
+contains exactly the 6 approved vocabulary declarations + 2 theorem
+boundaries; every registry entry marked `core` maps to a declaration and
+every promoted declaration has a glossary entry (agreement check PASSED).
+
 ## Exception register
 
 **None proposed.** Any future `IMPORT` or `ADAPT` must identify exact source, license/provenance, copied surface, contamination review, destination, tests, and CTO approval before use.
