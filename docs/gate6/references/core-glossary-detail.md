@@ -23,6 +23,7 @@
 | Version | Date | Change | Kind |
 |---|---|---|---|
 | v1.1.0 | 2026-08-06 | Template addition (P4 D3): ontology-record template gains the `collision_check` review item (D3 mechanical check — a3-core-design.md §7 criterion 4). Additive; no entry meaning changed; no downstream re-review required. | minor (additive) |
+| — | 2026-08-06 | Gate 7 promotions (status moves — no version bump per registry rules): entries 25, 26, 27 core-candidate → **core** (DECISION_LOG item 26; per-declaration approval records `G7_REVIEW_BATCH.md` §8; PR #11); entry 7 gains the landed endowment-relative variant note; entry 28 stays glossary-only (G7 decision D5). | status moves |
 | v1.0.0 | 2026-08-06 | Initial release: 28 entries seeded from c1–c4 + fwt1. P2 promotions reflected: entries 1, 6, 7, 9, 12, 13 moved **core-candidate → core** (DECISION_LOG item 20; per-declaration approval records `P2_REVIEW_BATCH.md` §6; merged PR #8). Equilibrium family (21–28) stays glossary-only/core-candidate — declarations deferred to the Gate 7 slice. | initial |
 
 ## Ontology-record template (per promoted declaration)
@@ -114,6 +115,10 @@ promotion:     Gate 6 promotion criteria checklist + CTO approval ref (once prom
 - **Formal view:** `def budgetSet (p : Goods → ℝ) (m : ℝ) : Set (bundle
   Goods) := {x | ∑ i, p i * x i ≤ m}` (requires `[Fintype Goods]`).
 - **Assumptions:** prices nonnegative optional variant; `m ≥ 0` variant.
+- **Variants:** income form (chosen); endowment-relative form now
+  `budgetSetEndowment` (Constraints — promoted Gate 7, DECISION_LOG item
+  26, PR #11; the P2-D2-deferred form, definitionally
+  `budgetSet p (∑ g, p g * e g)`).
 - **Axiom audit:** baseline (sums over Fintype are Mathlib).
 - **Examples:** c1's `feasible_budget_set`; expansion `Bold ⊆ Bnew`.
 - **Source:** c1 definition `feasible_budget_set`; ontology ref
@@ -284,49 +289,62 @@ promotion:     Gate 6 promotion criteria checklist + CTO approval ref (once prom
 ### 25. `market-clearing`
 - **Economic view:** for every good, total consumption equals total
   endowment: Σ_i x_i g = Σ_i e_i g.
-- **Formal view:** core-candidate: `def marketClearing (e x : Agent →
-  Goods → ℝ) : Prop := ∀ g, (∑ i, x i g) = (∑ i, e i g)` (the fwt1
-  `FwtFeasible`, which served double duty as feasibility).
-- **Axiom audit:** baseline (Fintype sums are Mathlib).
+- **Formal view:** `def marketClearing {Agent Goods} [Fintype Agent]
+  (e x : Agent → bundle Goods) : Prop := ∀ g, (∑ i, x i g) = (∑ i, e i g)`
+  (the fwt1 `FwtFeasible`, which served double duty as feasibility;
+  minimal constraint set — the sum is over agents, `∀ g` over goods).
+- **Axiom audit:** baseline (Fintype sums are Mathlib; verbatim
+  `G7_REVIEW_BATCH.md` §6).
 - **Source:** fwt1 EI definition `feasible_allocation` + market clearing
   in `competitive_equilibrium`; ontology ref `market_clearing`.
-- **Status:** core-candidate (declaration deferred to Gate 7 slice).
+- **Status:** **core** (promoted — Gate 7 batch, DECISION_LOG item 26, PR #11).
+- **Promotion:** approved 2026-08-06 (all 7 criteria; approval record
+  `G7_REVIEW_BATCH.md` §8).
 
 ### 26. `competitive-equilibrium` (alias: Walrasian-equilibrium)
 - **Economic view:** prices p and allocation x such that every consumer
   maximizes utility in their budget set and markets clear.
-- **Formal view:** core-candidate structure (fwt1 `FwtWalrasian`):
-  `structure competitiveEquilibrium ... where feasible :
-  marketClearing e x; maximizes : ∀ i, x i ∈ budget p (e i) ∧ ∀ y,
-  y ∈ budget p (e i) → u i y ≤ u i (x i)`.
+- **Formal view:** `structure competitiveEquilibrium {Agent Goods}
+  [Fintype Agent] [Fintype Goods] (e : Agent → bundle Goods)
+  (u : Agent → bundle Goods → ℝ) (x : Agent → bundle Goods)
+  (p : Goods → ℝ) : Prop where feasible : marketClearing e x;
+  maximizes : ∀ i, x i ∈ budgetSetEndowment p (e i) ∧ ∀ y,
+  y ∈ budgetSetEndowment p (e i) → u i y ≤ u i (x i)`.
 - **Assumptions:** direct utility maximization definition — the strong
   Pareto form then needs NO local nonsatiation (classic result; recorded
   in the fwt1 proof header).
 - **Source:** fwt1 EI definitions `competitive_equilibrium`,
   `Walrasian_equilibrium`; ontology refs `general_equilibrium`,
   `consumer_optimization`; the non-null `solution_concept`.
-- **Status:** core-candidate (declaration deferred to Gate 7 slice).
+- **Status:** **core** (promoted — Gate 7 batch, DECISION_LOG item 26, PR #11).
+- **Promotion:** approved 2026-08-06 (all 7 criteria; approval record
+  `G7_REVIEW_BATCH.md` §8).
 
 ### 27. `pareto-efficiency`
 - **Economic view:** no feasible allocation makes every consumer strictly
   better off (strong form; the fwt1 claim's reading — the EI ambiguity
   "weak vs strong Pareto" resolved at review).
-- **Formal view:** core-candidate predicate (fwt1 `FwtParetoOptimal`):
-  `def paretoEfficiency (e u x) : Prop := ¬ ∃ y, marketClearing e y ∧
+- **Formal view:** `def paretoEfficiency {Agent Goods} [Fintype Agent]
+  (e : Agent → bundle Goods) (u : Agent → bundle Goods → ℝ)
+  (x : Agent → bundle Goods) : Prop := ¬ ∃ y, marketClearing e y ∧
   ∀ i, u i (x i) < u i (y i)`.
-- **Assumptions:** strong form; requires a NONEMPTY agent set (the
-  empty-economy case makes the claim false — the fwt1 proof added
-  `[Nonempty Agent]`, a real semantic gap the interpreter did not
-  surface; recorded in the proof notes).
+- **Assumptions:** strong form. `[Nonempty Agent]` lives on the THEOREM
+  boundary, not this definition (Gate 7 decision D4) — the empty-economy
+  case makes the claim false; the fwt1 proof added `[Nonempty Agent]`, a
+  real semantic gap the interpreter did not surface (recorded in the
+  proof notes).
 - **Source:** fwt1 EI definition `Pareto_efficient`; ambiguity "Strength
   of Pareto efficiency"; ontology ref `Pareto_optimality`.
-- **Status:** core-candidate (declaration deferred to Gate 7 slice).
+- **Status:** **core** (promoted — Gate 7 batch, DECISION_LOG item 26, PR #11).
+- **Promotion:** approved 2026-08-06 (all 7 criteria; approval record
+  `G7_REVIEW_BATCH.md` §8).
 
 ### 28. `utility-maximization`
 - **Economic view:** the agent's chosen bundle is utility-maximal within
   its budget set.
 - **Formal view:** glossary-only — a property folded into
-  `competitiveEquilibrium.maximizes`; no standalone declaration.
+  `competitiveEquilibrium.maximizes`; no standalone declaration (Gate 7
+  decision D5 kept this reading).
 - **Source:** fwt1 EI definition `competitive_equilibrium`; ontology ref
   `consumer_optimization`.
 - **Status:** glossary-only.
@@ -344,10 +362,10 @@ promotion:     Gate 6 promotion criteria checklist + CTO approval ref (once prom
 | fwt1 first welfare theorem | 6, 7, 11, 12, 20, 21–28 (equilibrium family) | none |
 
 The five VERIFIED claim families exercise 28 distinct vocabulary items:
-6 were **promoted to core** in the first batch (1, 6, 7, 9, 12, 13 — P2,
-DECISION_LOG item 20, PR #8), 3 are core-candidates deferred to the Gate 7
-slice (25, 26, 27), 7 are mathlib references, and the remaining 12 are
-glossary-only conditions/roles. This is the EI acceptance test in
+9 are **promoted to core** — 6 in the first batch (1, 6, 7, 9, 12, 13 —
+P2, DECISION_LOG item 20, PR #8) and 3 in the Gate 7 equilibrium batch
+(25, 26, 27 — DECISION_LOG item 26, PR #11); 7 are mathlib references;
+the remaining 12 are glossary-only conditions/roles. This is the EI acceptance test in
 operational form: the frame + glossary can carry confident review of the
 canonical claims **and** a real theorem (fwt1).
 
