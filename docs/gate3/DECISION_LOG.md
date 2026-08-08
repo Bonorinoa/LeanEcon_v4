@@ -227,7 +227,8 @@ accountable semantic authority.
 | 32 | `formalize --from-file` (and statement/mapping split files): reviewer-authored formal recovery with full D1/D4/static contracts; provenance `reviewer_authored_formal` | Approved (Gate 8 / v0.2 primary) | **SHIPPED** |
 | 33 | Release train: annotated tags v0.2.0 (foundation), v0.3.0 (eval skeleton), v1.0.0 (supported verified workflow); evidence in `docs/releases/*`; no mandatory STATUS.md | Approved | **SHIPPED** |
 | 34 | v1 surface freeze: CLI subcommands, EI 1.0.0, bundle 1.0.0 (12 checks), Core P2+G7 freeze, builder `leanecon-a3-1.0.0`; explicit non-claims (no B2, no agents, no corpus SLA) | Approved | **LOCKED — v1.0.0** |
-| 35 | Second GitHub approver | Still open; interim single-maintainer + required CI | **OPEN (interim)** |
+| 35 | Second GitHub approver | Resolved by activating formal bot contributor `@hermessinho` (item 36); interim single-maintainer merge scripts remain for protection relax until dual-approval is routine | **RESOLVED (bot slot filled)** |
+| 36 | Formal bot contributor `@hermessinho`: CODEOWNERS second slot; limited-scope PAT as `LEANECON_BOT_TOKEN`; dual-token loader `scripts/github_token.py`; bot may push/PR implementation work; CTO remains sole semantic authority for meaning/Core/policy | Activated 2026-08-08 (classic PAT + collaborator Write) | **LOCKED — ACTIVE** |
 
 Resolutions incorporated:
 
@@ -236,3 +237,6 @@ Resolutions incorporated:
   self-certify meaning.
 - `scripts_local/a3_run.py` is the only supported live entrypath (OOS F2).
 - Package version bumped to `1.0.0` in `pyproject.toml` with the v1 tag.
+- Item 35 second-contributor slot is filled by `@hermessinho` (ops +
+  implementation). Semantic approval is still CTO-owned; bot does not
+  self-approve meaning or Core promotions.
