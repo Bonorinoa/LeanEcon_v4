@@ -51,6 +51,11 @@ TRANSITIONS: frozenset[tuple[str | None, str]] = frozenset(
         # formalization
         ("ACCEPTED", "FORMALIZED"),
         ("ACCEPTED", "BLOCKED"),
+        # OOS 2026-08-08 (F1): static formalize rejection (PROVIDER_INVALID_OUTPUT
+        # — theorem := body, D1 bare core ids, D4 root scaffolding) leaves the
+        # claim FAILED with NO artifact. The runner already emitted these edges;
+        # the table must allow them so trace replay stays honest.
+        ("ACCEPTED", "FAILED"),
         ("FORMALIZED", "FAILED"),
         # verification
         ("FORMALIZED", "PROVING"),
@@ -60,9 +65,13 @@ TRANSITIONS: frozenset[tuple[str | None, str]] = frozenset(
         # retries
         ("FAILED", "PROVING"),
         ("FAILED", "INTERPRETED"),
+        # second (and further) formalize rejection while already FAILED
+        ("FAILED", "FAILED"),
         ("BLOCKED", "INTERPRETED"),
         ("BLOCKED", "FORMALIZED"),
         ("BLOCKED", "PROVING"),
+        # formalize entry from BLOCKED can still produce a negative result
+        ("BLOCKED", "FAILED"),
     }
 )
 

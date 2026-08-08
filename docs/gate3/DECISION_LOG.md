@@ -188,3 +188,27 @@ Resolutions incorporated:
 - No tooling deltas (D9): D3 CI grep, verify-side scaffolding signal,
   `mapping_kind: none` removal all deferred as recorded in
   `P4_REVIEW_BATCH.md`.
+
+---
+
+# OOS evaluation + immediate cleanup (2026-08-08) — Gate 8 handoff
+
+**Status:** Out-of-sample batch complete (evaluation only). Immediate F1
+lifecycle fix authorized as cleanup before Gate 8. Gate 8 scope deferred
+to a new session via `docs/gate8/INIT_GATE8.md`.
+
+| # | Item | CTO disposition | Package state |
+|---|---|---|---|
+| 28 | OOS batch (oos1 IR@CE VERIFIED+12_core_pin; oos2 budget expansion VERIFIED+12_core_pin; oos3 Nash FORMALIZED boundary; report `docs/gate7/OOS_BATCH_REPORT.md`) | Authorized evaluation; findings F1–F5 recorded | **EVIDENCE** |
+| 29 | Immediate F1 fix: lifecycle edges `ACCEPTED→FAILED`, `FAILED→FAILED`, `BLOCKED→FAILED` + regression test; oos2 replay_ok confirmed | Cleanup before Gate 8 (not a feature gate) | **PENDING COMMIT** |
+| 30 | Gate 8 init brief (`docs/gate8/INIT_GATE8.md`): primary slice = reviewer `formalize --from-file` + pipeline completeness; B2 thin optional; agents/corpus/game-theory Core deferred | Handoff for new session — slice confirmation at G8.0 | **HANDOFF** |
+
+Resolutions incorporated:
+
+- Product confirmed single-claim sequential pipeline (no agents/retrieval).
+- D1 earned keep on oos3; D2 `12_core_pin` earned keep on oos1/oos2 (via
+  `a3_run.py` / PYTHONPATH=src — bare install can drop the pin).
+- F1 is table completeness (runner already emitted the edges); not a
+  behavior change to formalize rejection semantics.
+- Gate 8 must not reopen "build agents first"; bottlenecks are formalizer
+  compliance, reviewer recovery CLI, and lifecycle/ops completeness.
