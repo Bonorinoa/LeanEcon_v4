@@ -6,8 +6,9 @@ schema (references/gate3/ei_schema_draft.json), enforces the locked
 finalizes an accepted revision immutably.
 
 The EI candidate is a meaning hypothesis, never a proof and never a
-hidden answer key. ``semantic_triage`` may flag; only a human reviewer may
-set ``review.decision`` to APPROVED (enforced by the runner + finalize).
+hidden answer key. ``semantic_triage`` may flag; only an authorized
+reviewer (human or AI — docs/gate3/08-reviewer-policy.md) may set
+``review.decision`` to APPROVED (enforced by the runner + finalize).
 """
 
 from __future__ import annotations

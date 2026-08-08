@@ -37,11 +37,14 @@ def _build_happy(tmp_path) -> tuple[ArtifactStore, ClaimRecord, str]:
     return store, claim, bundle_id
 
 
-def test_happy_bundle_passes_all_eleven(tmp_path):
+def test_happy_bundle_passes_all_twelve(tmp_path):
     store, claim, bundle_id = _build_happy(tmp_path)
     checks = validate_bundle(store, bundle_id, claim)
     assert bundle_result(checks) == "VERIFIED"
+    assert len(checks) == 12
     assert all(ok for _, ok, _ in checks), [c for c in checks if not c[1]]
+    names = [c[0] for c in checks]
+    assert "12_core_pin" in names
 
 
 def test_sorry_in_axiom_audit_fails_check_5(tmp_path):

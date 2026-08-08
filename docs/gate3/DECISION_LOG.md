@@ -212,3 +212,27 @@ Resolutions incorporated:
   behavior change to formalize rejection semantics.
 - Gate 8 must not reopen "build agents first"; bottlenecks are formalizer
   compliance, reviewer recovery CLI, and lifecycle/ops completeness.
+
+---
+
+# v1 ship train — AI reviewer + releases v0.2 / v0.3 / v1.0 (2026-08-08)
+
+**Status:** CTO-approved ship path. Tags `v0.2.0`, `v0.3.0`, `v1.0.0`.
+No mandatory `docs/STATUS.md`. Reviewer may be **human or AI**; CTO remains
+accountable semantic authority.
+
+| # | Item | CTO disposition | Package state |
+|---|---|---|---|
+| 31 | AI reviewer policy: authorized AI agents may emit ACCEPTED/REJECTED, gap-ack, and axiom-approve under `docs/gate3/08-reviewer-policy.md`; records store `reviewer` + `reviewer_kind`; `none_noted` ack still required; CTO accountable | Approved (v1 promise edit) | **LOCKED** |
+| 32 | `formalize --from-file` (and statement/mapping split files): reviewer-authored formal recovery with full D1/D4/static contracts; provenance `reviewer_authored_formal` | Approved (Gate 8 / v0.2 primary) | **SHIPPED** |
+| 33 | Release train: annotated tags v0.2.0 (foundation), v0.3.0 (eval skeleton), v1.0.0 (supported verified workflow); evidence in `docs/releases/*`; no mandatory STATUS.md | Approved | **SHIPPED** |
+| 34 | v1 surface freeze: CLI subcommands, EI 1.0.0, bundle 1.0.0 (12 checks), Core P2+G7 freeze, builder `leanecon-a3-1.0.0`; explicit non-claims (no B2, no agents, no corpus SLA) | Approved | **LOCKED — v1.0.0** |
+| 35 | Second GitHub approver | Still open; interim single-maintainer + required CI | **OPEN (interim)** |
+
+Resolutions incorporated:
+
+- Gate 3 “human only” actor prose is superseded for **review commands** by
+  item 31; interpret/formalize models remain drafting aids and do not
+  self-certify meaning.
+- `scripts_local/a3_run.py` is the only supported live entrypath (OOS F2).
+- Package version bumped to `1.0.0` in `pyproject.toml` with the v1 tag.

@@ -93,3 +93,23 @@ and must be resolved before any release-labeled work.
   re-formalization (FORMALIZED -> FORMALIZED lifecycle edge).
 - **Deferred**: second GitHub approval account (interim merge procedure
   remains); Gate 6 init doc written for a NEW session.
+
+## 2026-08-06 — Gate 6 Core + Gate 7 equilibrium (closed)
+
+- Gate 6 P1–P5: EI schema freeze 1.0.0; first Core batch (6 decls + 2
+  theorem boundaries); glossary registry v1; A3 contract deltas D1/D2/D4
+  (`core` FQ ids, `12_core_pin`, namespace scaffolding); clean-clone exit.
+- Gate 7: equilibrium family (`budgetSetEndowment`, `marketClearing`,
+  `competitiveEquilibrium`, `paretoEfficiency`) + FWT theorem boundary
+  `competitiveEquilibrium_paretoEfficient` (PR #11).
+- Bundle checklist is **12** items (11 + `12_core_pin`).
+
+## 2026-08-08 — OOS batch + F1 + v1 ship train
+
+- OOS (oos1/oos2 VERIFIED+pin; oos3 FORMALIZED boundary): findings F1–F5.
+  F1 lifecycle edges fixed PR #12. F5 → `formalize --from-file`.
+- **v1 ship (this session):** AI reviewer policy (`reviewer_kind`);
+  `formalize --from-file` recovery; eval claim set + scorecards; release
+  packets v0.2/v0.3/v1.0; package `1.0.0`; builder `leanecon-a3-1.0.0`.
+- Ops standing rule: always `scripts_local/a3_run.py` for live A3 (stale
+  install can drop D2). Second GitHub approver still open.

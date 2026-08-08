@@ -1,12 +1,13 @@
-"""A3 runner — minimal verified workflow orchestrator (Gate 5).
+"""A3 runner — minimal verified workflow orchestrator (Gate 5 + v1 surface).
 
-CLI entry point: ``python -m leanecon.a3_runner <subcommand>``.
+CLI entry point: ``python -m leanecon.a3_runner <subcommand>``
+(supported live path: ``scripts_local/a3_run.py`` — sets PYTHONPATH=src).
 
 Subcommands (the CTO-facing surface):
   ingest        create a claim revision (DRAFT)
   interpret     run interpretation (live) -> INTERPRETED -> REVIEW_REQUIRED
   review        reviewer decision: approve | reject  (ACCEPTED | REJECTED)
-  formalize     run formalization (live) -> FORMALIZED (or stays with gaps)
+  formalize     live formalization OR ``--from-file`` reviewer candidate
   gap-ack       reviewer acknowledges mapping gaps (enables PROVING)
   axiom-approve reviewer approves the axiom list (per-run reviewer record)
   verify        proof input -> PROVING -> VERIFIED | FAILED | BLOCKED + bundle
@@ -14,10 +15,11 @@ Subcommands (the CTO-facing surface):
   replay        trace replay by run id or claim id
   status        claim state and artifact references
 
-Actor rules (locked at Gate 3): only a human reviewer may emit ACCEPTED or
-REJECTED; the system emits processing states and FAILED/BLOCKED; VERIFIED
-comes only from the bundle validator path. ``--reviewer`` (or the
-LEANECON_REVIEWER_ID environment variable) is required for review commands.
+Actor rules: only an authorized reviewer (human or AI, see
+``docs/gate3/08-reviewer-policy.md``) may emit ACCEPTED or REJECTED; the
+system emits processing states and FAILED/BLOCKED; VERIFIED comes only
+from the bundle validator path. ``--reviewer`` (or LEANECON_REVIEWER_ID)
+is required for review commands; optional ``--reviewer-kind human|ai|auto``.
 
 Attribution: prepared by Hermes Agent (Nous Research) under direction of
 the CTO (@Bonorinoa).
@@ -69,12 +71,15 @@ from leanecon.lean_probe import probe_workspace
 from leanecon.lifecycle import TERMINAL_STATES
 from leanecon.providers import Capability, ProviderAdapter, ProviderFailure
 from leanecon.repopath import find_repo_root
+from leanecon.reviewer_policy import resolve_reviewer
 from leanecon.trace_replay import replay_claim, replay_run
 from leanecon.verifier import (
     REASON_SORRY_FOUND,
     probe_statement_compiles,
     verify_candidate,
 )
+
+BUILDER_IDENTITY = "leanecon-a3-1.0.0"
 
 REPO_ROOT = find_repo_root()
 WORKSPACE = REPO_ROOT / "lean_workspace"
@@ -128,11 +133,17 @@ def _state_event(
     )
 
 
-def _reviewer_identity(args) -> str:
+def _reviewer_identity(args) -> tuple[str, str]:
+    """Return (reviewer_id, reviewer_kind). See docs/gate3/08-reviewer-policy.md."""
     reviewer = getattr(args, "reviewer", None) or os.environ.get("LEANECON_REVIEWER_ID")
-    if not reviewer:
-        raise SystemExit("reviewer identity required: pass --reviewer or set LEANECON_REVIEWER_ID")
-    return reviewer
+    kind = getattr(args, "reviewer_kind", None) or os.environ.get("LEANECON_REVIEWER_KIND")
+    try:
+        return resolve_reviewer(reviewer, kind)
+    except ValueError as exc:
+        raise SystemExit(
+            f"{exc}; pass --reviewer / LEANECON_REVIEWER_ID "
+            "(optional --reviewer-kind human|ai|auto)"
+        ) from exc
 
 
 def _claim_state_guard(claim: ClaimRecord, allowed: set[str], action: str) -> None:
@@ -316,7 +327,7 @@ def cmd_interpret(args, store: ArtifactStore) -> int:
 def cmd_review(args, store: ArtifactStore) -> int:
     claim = store.load_claim(args.claim_id)
     _claim_state_guard(claim, {"REVIEW_REQUIRED"}, "review")
-    reviewer = _reviewer_identity(args)
+    reviewer, reviewer_kind = _reviewer_identity(args)
     run_id, log = _new_run(args.events_dir)
 
     ei = store.read_ei(claim.claim_id)
@@ -333,11 +344,18 @@ def cmd_review(args, store: ArtifactStore) -> int:
         except ValueError as exc:
             print(f"refused: {exc}")
             return 1
-        event = _state_event(log, run_id, claim.claim_id, claim.state, "ACCEPTED", reviewer, "a3-review",
-                             detail={"ei_rev": ei.get("revision"), "acknowledges_none_noted": acknowledges})
+        event = _state_event(
+            log, run_id, claim.claim_id, claim.state, "ACCEPTED", reviewer, "a3-review",
+            detail={
+                "ei_rev": ei.get("revision"),
+                "acknowledges_none_noted": acknowledges,
+                "reviewer_kind": reviewer_kind,
+            },
+        )
         accepted = store.write_ei(claim.claim_id, finalized, status="accepted")
         store.write_review_record(claim.claim_id, "approval", {
-            "decision": "APPROVED", "reviewer": reviewer, "notes": args.notes or "",
+            "decision": "APPROVED", "reviewer": reviewer, "reviewer_kind": reviewer_kind,
+            "notes": args.notes or "",
             "event_ref": event.event_id, "acknowledges_none_noted": acknowledges,
             "ei_rev": accepted["revision"], "ei_digest": accepted["digest"],
         })
@@ -345,22 +363,26 @@ def cmd_review(args, store: ArtifactStore) -> int:
         claim.state = "ACCEPTED"
         claim.accepted_ei_rev = accepted["revision"]
         store.save_claim(claim)
-        print(f"claim {claim.claim_id}: REVIEW_REQUIRED -> ACCEPTED (reviewer={reviewer})")
+        print(f"claim {claim.claim_id}: REVIEW_REQUIRED -> ACCEPTED (reviewer={reviewer}, kind={reviewer_kind})")
         print(f"  accepted EI rev {accepted['revision']} digest {accepted['digest'][:16]}…")
         print(f"  superseded downstream artifacts: any formalization not built on this EI digest")
         return 0
 
     if args.decision == "reject":
         reason = getattr(args, "reason", None) or "USER_REJECTED"
-        event = _state_event(log, run_id, claim.claim_id, claim.state, "REJECTED", reviewer, "a3-review",
-                             reason_codes=(reason,), detail={"notes": args.notes or ""})
+        event = _state_event(
+            log, run_id, claim.claim_id, claim.state, "REJECTED", reviewer, "a3-review",
+            reason_codes=(reason,),
+            detail={"notes": args.notes or "", "reviewer_kind": reviewer_kind},
+        )
         store.write_review_record(claim.claim_id, "approval", {
-            "decision": "REJECTED", "reviewer": reviewer, "notes": args.notes or "",
+            "decision": "REJECTED", "reviewer": reviewer, "reviewer_kind": reviewer_kind,
+            "notes": args.notes or "",
             "event_ref": event.event_id, "reason_codes": [reason],
         })
         claim.state = "REJECTED"
         store.save_claim(claim)
-        print(f"claim {claim.claim_id}: REVIEW_REQUIRED -> REJECTED ({reason})")
+        print(f"claim {claim.claim_id}: REVIEW_REQUIRED -> REJECTED ({reason}; kind={reviewer_kind})")
         print("  revision is terminal; open a new revision with `ingest` to retry")
         return 0
 
@@ -469,29 +491,140 @@ def formalize_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run
     return "FORMALIZED", candidate
 
 
-def cmd_formalize(args, store: ArtifactStore) -> int:
-    claim = store.load_claim(args.claim_id)
-    if claim.state == "FORMALIZED" and not args.force:
-        raise SystemExit(
-            f"claim {claim.claim_id} is already FORMALIZED; use --force to re-formalize "
-            "(new formal revision, supersedes the current candidate)")
-    # FAILED is legal here: a rejected candidate (PROVIDER_INVALID_OUTPUT)
-    # leaves the claim FAILED — retry is the natural recovery path
-    _claim_state_guard(claim, {"ACCEPTED", "BLOCKED", "FORMALIZED", "FAILED"}, "formalize")
-    run_id, log = _new_run(args.events_dir)
-    adapter = _make_adapter(run_id, log)
-    state_after, candidate = formalize_claim(claim, store, log, run_id, adapter, WORKSPACE)
-    claim.state = state_after
-    revs = store.formal_revs(claim.claim_id)
-    if revs:
-        # a rejected candidate (static validation / parse failure) writes NO
-        # artifact; keep the previous formal_rev reference in that case
-        claim.formal_rev = revs[-1]
-    store.save_claim(claim)
+def _load_formal_candidate_file(path: Path) -> dict:
+    """Load a reviewer-authored formal candidate JSON (OOS F5 / Gate 8).
+
+    Accepted shapes:
+    - {statement|statement_text, target_theorem, mapping_report, provenance?}
+    - split files are assembled by the caller before invoking this helper
+    """
+    if not path.exists():
+        raise SystemExit(f"formal candidate file not found: {path}")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"formal candidate is not valid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise SystemExit("formal candidate must be a JSON object")
+    statement = data.get("statement_text") or data.get("statement")
+    target = data.get("target_theorem")
+    report = data.get("mapping_report")
+    if not isinstance(statement, str) or not statement.strip():
+        raise SystemExit("formal candidate requires non-empty 'statement' or 'statement_text'")
+    if not isinstance(target, str) or not target.strip():
+        raise SystemExit("formal candidate requires non-empty 'target_theorem'")
+    if not isinstance(report, list):
+        raise SystemExit("formal candidate requires 'mapping_report' as a list")
+    return {
+        "statement": statement,
+        "target_theorem": target.strip(),
+        "mapping_report": report,
+        "provenance": data.get("provenance") if isinstance(data.get("provenance"), dict) else {},
+    }
+
+
+def formalize_from_candidate(
+    claim: ClaimRecord,
+    store: ArtifactStore,
+    log: EventLog,
+    run_id: str,
+    workspace_root: Path,
+    statement: str,
+    target_theorem: str,
+    mapping_report: list,
+    provenance: Optional[dict] = None,
+) -> tuple[str, Optional[dict]]:
+    """Validate and store a reviewer-authored formal candidate (no provider).
+
+    Applies the same static contracts as the live formalizer path (statement,
+    D4 scaffolding, mapping/D1) so recovery cannot bypass D1/D4. Emits the
+    same FORMALIZED/FAILED lifecycle edges so trace replay stays honest.
+    """
+    statement_problems = validate_statement_text(statement)
+    if statement_problems:
+        _state_event(
+            log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
+            reason_codes=("PROVIDER_INVALID_OUTPUT",),
+            detail={"statement_problems": statement_problems[:5], "source": "from_file"},
+        )
+        return "FAILED", None
+
+    scaffolding_problems = validate_scaffolding_namespace(statement)
+    if scaffolding_problems:
+        _state_event(
+            log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
+            reason_codes=("PROVIDER_INVALID_OUTPUT",),
+            detail={"scaffolding_problems": scaffolding_problems[:5], "source": "from_file"},
+        )
+        return "FAILED", None
+
+    ei = store.read_ei(claim.claim_id, claim.accepted_ei_rev)
+    problems, gaps = validate_mapping_report(mapping_report, ei)
+    if problems:
+        _state_event(
+            log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
+            reason_codes=("PROVIDER_INVALID_OUTPUT",),
+            detail={"mapping_problems": problems[:5], "source": "from_file"},
+        )
+        return "FAILED", None
+
+    gaps = classify_gaps(gaps, mapping_report)
+    probe = probe_statement_compiles(workspace_root, statement)
+    vacuity = vacuity_warning(statement)
+    imports = [
+        line.split("import", 1)[1].strip()
+        for line in statement.splitlines()
+        if line.strip().startswith("import")
+    ]
+    prov = dict(provenance or {})
+    prov.setdefault("capability", "formalize")
+    prov.setdefault("source", "from_file")
+    prov.setdefault("model", None)
+    if "reviewer_authored_formal" not in prov and prov.get("source") == "from_file":
+        prov["reviewer_authored_formal"] = True
+    candidate = {
+        "statement_text": statement,
+        "target_theorem": target_theorem,
+        "mapping_report": mapping_report,
+        "imports": imports,
+        "interpretation_digest": ei.get("digest"),
+        "gaps": gaps,
+        "statement_probe": probe,
+        "vacuity_warning": vacuity,
+        "provenance": prov,
+    }
+    artifact = store.write_formal(claim.claim_id, candidate, status="current")
+    _state_event(
+        log, run_id, claim.claim_id, claim.state, "FORMALIZED", "system", "a3-formalize",
+        detail={
+            "formal_rev": artifact["revision"],
+            "target_theorem": target_theorem,
+            "gap_count": len(gaps),
+            "statement_compiles": probe.get("compiles"),
+            "source": "from_file",
+        },
+    )
+    if gaps:
+        _emit(log, Event(
+            event_type=EVENT_DIAGNOSTIC_RESULT,
+            run_id=run_id,
+            claim_id=claim.claim_id,
+            source_component="a3-formalize",
+            actor="system",
+            payload_class="PROJECT",
+            trace_ref=f"claim:{claim.claim_id}",
+            detail={"event": "mapping_gaps", "gap_count": len(gaps),
+                    "gaps": [g["ei_element_id"] for g in gaps], "source": "from_file"},
+        ))
+    return "FORMALIZED", candidate
+
+
+def _print_formalize_result(claim_id: str, state_after: str, candidate: Optional[dict]) -> None:
     if candidate is not None:
         gaps = candidate.get("gaps") or []
         probe = candidate.get("statement_probe") or {}
-        print(f"claim {claim.claim_id}: FORMALIZED (target theorem {candidate['target_theorem']})")
+        source = (candidate.get("provenance") or {}).get("source", "live")
+        print(f"claim {claim_id}: FORMALIZED (target theorem {candidate['target_theorem']}; source={source})")
         compiles = probe.get("compiles")
         if compiles is False:
             print(f"  STATEMENT COMPILE PROBE: FAILED (exit {probe.get('exit_code')}) — see artifact stderr_tail")
@@ -508,7 +641,75 @@ def cmd_formalize(args, store: ArtifactStore) -> int:
         else:
             print("  mapping report complete: no gaps")
     else:
-        print(f"claim {claim.claim_id}: {state_after}")
+        print(f"claim {claim_id}: {state_after}")
+
+
+def cmd_formalize(args, store: ArtifactStore) -> int:
+    claim = store.load_claim(args.claim_id)
+    if claim.state == "FORMALIZED" and not args.force:
+        raise SystemExit(
+            f"claim {claim.claim_id} is already FORMALIZED; use --force to re-formalize "
+            "(new formal revision, supersedes the current candidate)")
+    # FAILED is legal here: a rejected candidate (PROVIDER_INVALID_OUTPUT)
+    # leaves the claim FAILED — retry is the natural recovery path
+    _claim_state_guard(claim, {"ACCEPTED", "BLOCKED", "FORMALIZED", "FAILED"}, "formalize")
+    run_id, log = _new_run(args.events_dir)
+
+    from_file = getattr(args, "from_file", None) or ""
+    statement_file = getattr(args, "statement_file", None) or ""
+    mapping_file = getattr(args, "mapping_file", None) or ""
+    target_override = getattr(args, "target_theorem", None) or ""
+
+    if from_file or statement_file or mapping_file:
+        if from_file and (statement_file or mapping_file):
+            raise SystemExit("use either --from-file OR --statement-file/--mapping-file, not both")
+        if from_file:
+            parsed = _load_formal_candidate_file(Path(from_file))
+        else:
+            if not statement_file or not mapping_file:
+                raise SystemExit("--statement-file and --mapping-file are required together (or use --from-file)")
+            stmt_path = Path(statement_file)
+            map_path = Path(mapping_file)
+            if not stmt_path.exists():
+                raise SystemExit(f"statement file not found: {stmt_path}")
+            if not map_path.exists():
+                raise SystemExit(f"mapping file not found: {map_path}")
+            try:
+                report = json.loads(map_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                raise SystemExit(f"mapping file is not valid JSON: {exc}") from exc
+            if not isinstance(report, list):
+                raise SystemExit("mapping file must be a JSON list (mapping_report rows)")
+            target = target_override or "reviewer_target"
+            parsed = {
+                "statement": stmt_path.read_text(encoding="utf-8"),
+                "target_theorem": target,
+                "mapping_report": report,
+                "provenance": {"source": "from_file", "reviewer_authored_formal": True},
+            }
+            if target_override:
+                parsed["target_theorem"] = target_override
+        if target_override:
+            parsed["target_theorem"] = target_override
+        state_after, candidate = formalize_from_candidate(
+            claim, store, log, run_id, WORKSPACE,
+            statement=parsed["statement"],
+            target_theorem=parsed["target_theorem"],
+            mapping_report=parsed["mapping_report"],
+            provenance=parsed.get("provenance"),
+        )
+    else:
+        adapter = _make_adapter(run_id, log)
+        state_after, candidate = formalize_claim(claim, store, log, run_id, adapter, WORKSPACE)
+
+    claim.state = state_after
+    revs = store.formal_revs(claim.claim_id)
+    if revs:
+        # a rejected candidate (static validation / parse failure) writes NO
+        # artifact; keep the previous formal_rev reference in that case
+        claim.formal_rev = revs[-1]
+    store.save_claim(claim)
+    _print_formalize_result(claim.claim_id, state_after, candidate)
     return 0
 
 
@@ -520,7 +721,7 @@ def cmd_formalize(args, store: ArtifactStore) -> int:
 def cmd_gap_ack(args, store: ArtifactStore) -> int:
     claim = store.load_claim(args.claim_id)
     _claim_state_guard(claim, {"FORMALIZED"}, "gap-ack")
-    reviewer = _reviewer_identity(args)
+    reviewer, reviewer_kind = _reviewer_identity(args)
     run_id, log = _new_run(args.events_dir)
     formal = store.read_formal(claim.claim_id, claim.formal_rev)
     gaps = formal.get("gaps") or []
@@ -528,7 +729,7 @@ def cmd_gap_ack(args, store: ArtifactStore) -> int:
         print(f"claim {claim.claim_id}: no mapping gaps to acknowledge")
         return 0
     store.write_review_record(claim.claim_id, "gap", {
-        "reviewer": reviewer, "notes": args.notes or "",
+        "reviewer": reviewer, "reviewer_kind": reviewer_kind, "notes": args.notes or "",
         "acknowledged_gap_ids": [g["ei_element_id"] for g in gaps],
         "event_ref": f"evt-{run_id}", "formal_rev": formal.get("revision"),
     })
@@ -536,21 +737,21 @@ def cmd_gap_ack(args, store: ArtifactStore) -> int:
         event_type=EVENT_DIAGNOSTIC_RESULT,
         run_id=run_id, claim_id=claim.claim_id, source_component="a3-review",
         actor=reviewer, payload_class="PROJECT", trace_ref=f"claim:{claim.claim_id}",
-        detail={"event": "gaps_acknowledged", "gap_count": len(gaps)},
+        detail={"event": "gaps_acknowledged", "gap_count": len(gaps), "reviewer_kind": reviewer_kind},
     ))
-    print(f"claim {claim.claim_id}: {len(gaps)} gaps acknowledged by {reviewer}; PROVING now allowed")
+    print(f"claim {claim.claim_id}: {len(gaps)} gaps acknowledged by {reviewer} ({reviewer_kind}); PROVING now allowed")
     return 0
 
 
 def cmd_axiom_approve(args, store: ArtifactStore) -> int:
     claim = store.load_claim(args.claim_id)
-    reviewer = _reviewer_identity(args)
+    reviewer, reviewer_kind = _reviewer_identity(args)
     run_id, log = _new_run(args.events_dir)
     axioms = [a.strip() for a in args.axioms.split(",") if a.strip()]
     if not axioms:
         raise SystemExit("--axioms required (comma-separated list)")
     record = store.write_review_record(claim.claim_id, "axiom", {
-        "reviewer": reviewer, "notes": args.notes or "",
+        "reviewer": reviewer, "reviewer_kind": reviewer_kind, "notes": args.notes or "",
         "approved_axioms": axioms, "event_ref": f"evt-{run_id}",
         "claim_revision": claim.revision,
     })
@@ -558,10 +759,10 @@ def cmd_axiom_approve(args, store: ArtifactStore) -> int:
         event_type=EVENT_DIAGNOSTIC_RESULT,
         run_id=run_id, claim_id=claim.claim_id, source_component="a3-review",
         actor=reviewer, payload_class="PROJECT", trace_ref=f"claim:{claim.claim_id}",
-        detail={"event": "axiom_approval", "approved_axioms": axioms},
+        detail={"event": "axiom_approval", "approved_axioms": axioms, "reviewer_kind": reviewer_kind},
     ))
     print(f"claim {claim.claim_id}: axiom review record written ({record['digest'][:16]}…)")
-    print(f"  approved: {', '.join(axioms)}")
+    print(f"  approved: {', '.join(axioms)} (reviewer={reviewer}, kind={reviewer_kind})")
     return 0
 
 
@@ -623,6 +824,7 @@ def cmd_verify(args, store: ArtifactStore) -> int:
         approval_record=approval, axiom_record=axiom_rec, trace_refs=trace_refs,
         capability_snapshots=snapshots, workspace_root=WORKSPACE,
         commands=[f"a3 verify --claim-id {claim.claim_id} --proof {args.proof}"],
+        builder_identity=BUILDER_IDENTITY,
     )
 
     # The bundle validator gates VERIFIED (gate3/05): a kernel-verified record
@@ -728,30 +930,46 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--claim-id", required=True)
     p.set_defaults(func=cmd_interpret)
 
-    p = sub.add_parser("review", help="reviewer decision: approve | reject")
+    p = sub.add_parser("review", help="reviewer decision: approve | reject (human or AI)")
     p.add_argument("--claim-id", required=True)
     p.add_argument("--decision", required=True, choices=["approve", "reject"])
     p.add_argument("--reviewer", default="")
+    p.add_argument("--reviewer-kind", default="",
+                   help="human | ai | auto (default auto: infer from reviewer id)")
     p.add_argument("--acknowledge-none-noted", action="store_true", help="required when EI found no ambiguity")
     p.add_argument("--reason", default="", help="reject reason code (default USER_REJECTED)")
     p.add_argument("--notes", default="")
     p.set_defaults(func=cmd_review)
 
-    p = sub.add_parser("formalize", help="run formalization (live provider call)")
+    p = sub.add_parser(
+        "formalize",
+        help="run formalization (live) or load a reviewer candidate via --from-file",
+    )
     p.add_argument("--claim-id", required=True)
     p.add_argument("--force", action="store_true",
                    help="re-formalize an already-FORMALIZED claim (new formal revision)")
+    p.add_argument("--from-file", default="",
+                   help="reviewer-authored formal candidate JSON "
+                        "(statement|statement_text, target_theorem, mapping_report)")
+    p.add_argument("--statement-file", default="",
+                   help="Lean statement text file (use with --mapping-file)")
+    p.add_argument("--mapping-file", default="",
+                   help="mapping_report JSON list file (use with --statement-file)")
+    p.add_argument("--target-theorem", default="",
+                   help="override target theorem name (required if statement file has no name)")
     p.set_defaults(func=cmd_formalize)
 
     p = sub.add_parser("gap-ack", help="reviewer acknowledges mapping gaps (per-run reviewer record)")
     p.add_argument("--claim-id", required=True)
     p.add_argument("--reviewer", default="")
+    p.add_argument("--reviewer-kind", default="", help="human | ai | auto")
     p.add_argument("--notes", default="")
     p.set_defaults(func=cmd_gap_ack)
 
     p = sub.add_parser("axiom-approve", help="reviewer approves the axiom list (per-run reviewer record)")
     p.add_argument("--claim-id", required=True)
     p.add_argument("--reviewer", default="")
+    p.add_argument("--reviewer-kind", default="", help="human | ai | auto")
     p.add_argument("--axioms", required=True, help="comma-separated axiom names")
     p.add_argument("--notes", default="")
     p.set_defaults(func=cmd_axiom_approve)
