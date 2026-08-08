@@ -41,7 +41,15 @@ def _fast_probe(monkeypatch):
 
 
 def _args(tmp_path, **kwargs) -> Namespace:
-    base = {"events_dir": str(tmp_path / "events")}
+    base = {
+        "events_dir": str(tmp_path / "events"),
+        "reviewer_kind": "",
+        "from_file": "",
+        "statement_file": "",
+        "mapping_file": "",
+        "target_theorem": "",
+        "force": False,
+    }
     base.update(kwargs)
     return Namespace(**base)
 
@@ -511,3 +519,220 @@ def test_formalize_accepts_namespaced_scaffolding(tmp_path):
     assert state == "FORMALIZED"
     assert candidate is not None and candidate["target_theorem"] == "t"
     assert len(store.formal_revs("c-d4ok")) == 1
+
+
+# ---------------------------------------------------------------------------
+# v0.2: formalize --from-file (OOS F5 / Gate 8) + AI reviewer
+# ---------------------------------------------------------------------------
+
+
+def test_ai_reviewer_approve_records_kind(tmp_path):
+    """CTO 2026-08-08: AI reviewer may approve; record stores reviewer_kind=ai."""
+    store, claim, events_dir, ei = _walk_to_review(tmp_path, claim_id="c-ai")
+    rc = a3_runner.cmd_review(
+        _args(
+            tmp_path,
+            claim_id="c-ai",
+            decision="approve",
+            reviewer="hermes",
+            reviewer_kind="auto",
+            acknowledge_none_noted=False,
+            notes="ai ok",
+            reason="",
+        ),
+        store,
+    )
+    assert rc == 0
+    assert store.load_claim("c-ai").state == "ACCEPTED"
+    approval = store.list_review_records("c-ai", "approval")[-1]
+    assert approval["reviewer"] == "hermes"
+    assert approval["reviewer_kind"] == "ai"
+
+
+def test_ai_reviewer_still_requires_none_noted_ack(tmp_path):
+    store = ArtifactStore(tmp_path)
+    claim = ClaimRecord(claim_id="c-ai2", revision=1, source_text="claim", data_class="PROJECT")
+    store.save_claim(claim)
+    events_dir = tmp_path / "events"
+    run_id, log = a3_runner._new_run(events_dir)
+    from tests.conftest import FakeAdapter
+
+    adapter = FakeAdapter(ei_factory=lambda: valid_ei(none_noted=True))
+    state, _ = a3_runner.interpret_claim(claim, store, log, run_id, adapter)
+    claim.state = state
+    store.save_claim(claim)
+    rc = a3_runner.cmd_review(
+        _args(
+            tmp_path,
+            claim_id="c-ai2",
+            decision="approve",
+            reviewer="leanecon-ai",
+            reviewer_kind="ai",
+            acknowledge_none_noted=False,
+            notes="",
+            reason="",
+        ),
+        store,
+    )
+    assert rc == 1
+    assert store.load_claim("c-ai2").state == "REVIEW_REQUIRED"
+
+
+def test_formalize_from_file_happy_path(tmp_path):
+    """Reviewer recovery: --from-file stores a formal rev without a provider call."""
+    store = ArtifactStore(tmp_path)
+    claim = ClaimRecord(claim_id="c-ff", revision=1, source_text="claim", data_class="PROJECT")
+    store.save_claim(claim)
+    ei_art = store.write_ei("c-ff", valid_ei(), status="accepted")
+    claim.state = "ACCEPTED"
+    claim.accepted_ei_rev = ei_art["revision"]
+    store.save_claim(claim)
+
+    candidate_path = tmp_path / "candidate.json"
+    candidate_path.write_text(
+        json.dumps(
+            {
+                "statement": f"theorem {C1_THEOREM} : True",
+                "target_theorem": C1_THEOREM,
+                "mapping_report": complete_mapping_report(),
+            }
+        ),
+        encoding="utf-8",
+    )
+    rc = a3_runner.cmd_formalize(
+        _args(tmp_path, claim_id="c-ff", from_file=str(candidate_path), force=False),
+        store,
+    )
+    assert rc == 0
+    claim = store.load_claim("c-ff")
+    assert claim.state == "FORMALIZED"
+    assert claim.formal_rev is not None
+    formal = store.read_formal("c-ff", claim.formal_rev)
+    assert formal["target_theorem"] == C1_THEOREM
+    assert formal["provenance"].get("source") == "from_file"
+    assert formal["provenance"].get("reviewer_authored_formal") is True
+    # no provider call — only from-file path
+    records = [
+        json.loads(line)
+        for p in (tmp_path / "events").glob("*.jsonl")
+        for line in p.read_text().splitlines()
+        if line.strip()
+    ]
+    formalized = [
+        r
+        for r in records
+        if r.get("event_type") == "CLAIM_STATE_CHANGED" and r.get("state_after") == "FORMALIZED"
+    ]
+    assert formalized and formalized[-1]["detail"].get("source") == "from_file"
+
+
+def test_formalize_from_file_rejects_theorem_body(tmp_path):
+    store = ArtifactStore(tmp_path)
+    claim = ClaimRecord(claim_id="c-ffbad", revision=1, source_text="claim", data_class="PROJECT")
+    store.save_claim(claim)
+    store.write_ei("c-ffbad", valid_ei(), status="accepted")
+    claim.state = "ACCEPTED"
+    claim.accepted_ei_rev = store.ei_revs("c-ffbad")[-1]
+    store.save_claim(claim)
+
+    candidate_path = tmp_path / "bad.json"
+    candidate_path.write_text(
+        json.dumps(
+            {
+                "statement": "theorem t : True := by trivial",
+                "target_theorem": "t",
+                "mapping_report": complete_mapping_report(),
+            }
+        ),
+        encoding="utf-8",
+    )
+    rc = a3_runner.cmd_formalize(
+        _args(tmp_path, claim_id="c-ffbad", from_file=str(candidate_path), force=False),
+        store,
+    )
+    assert rc == 0
+    assert store.load_claim("c-ffbad").state == "FAILED"
+    assert store.formal_revs("c-ffbad") == []
+
+
+def test_formalize_from_file_rejects_d1_bare_core(tmp_path):
+    store = ArtifactStore(tmp_path)
+    claim = ClaimRecord(claim_id="c-ffd1", revision=1, source_text="claim", data_class="PROJECT")
+    store.save_claim(claim)
+    store.write_ei("c-ffd1", valid_ei(), status="accepted")
+    claim.state = "ACCEPTED"
+    claim.accepted_ei_rev = store.ei_revs("c-ffd1")[-1]
+    store.save_claim(claim)
+
+    report = complete_mapping_report()
+    report[0] = {
+        **report[0],
+        "mapping_kind": "core",
+        "lean_identifier": "budgetSet",  # bare — D1 reject
+        "status": "mapped",
+    }
+    candidate_path = tmp_path / "d1.json"
+    candidate_path.write_text(
+        json.dumps(
+            {
+                "statement": "theorem t : True",
+                "target_theorem": "t",
+                "mapping_report": report,
+            }
+        ),
+        encoding="utf-8",
+    )
+    rc = a3_runner.cmd_formalize(
+        _args(tmp_path, claim_id="c-ffd1", from_file=str(candidate_path), force=False),
+        store,
+    )
+    assert rc == 0
+    assert store.load_claim("c-ffd1").state == "FAILED"
+    assert store.formal_revs("c-ffd1") == []
+
+
+def test_formalize_from_file_failed_then_recovery_replay(tmp_path):
+    """ACCEPTED -> FAILED (static) -> FORMALIZED (from-file) replays clean."""
+    store = ArtifactStore(tmp_path)
+    claim = ClaimRecord(claim_id="c-rec", revision=1, source_text="claim", data_class="PROJECT")
+    store.save_claim(claim)
+    store.write_ei("c-rec", valid_ei(), status="accepted")
+    claim.state = "ACCEPTED"
+    claim.accepted_ei_rev = store.ei_revs("c-rec")[-1]
+    store.save_claim(claim)
+
+    bad = tmp_path / "bad.json"
+    bad.write_text(
+        json.dumps(
+            {
+                "statement": "theorem t : True := True.intro",
+                "target_theorem": "t",
+                "mapping_report": complete_mapping_report(),
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert a3_runner.cmd_formalize(_args(tmp_path, claim_id="c-rec", from_file=str(bad)), store) == 0
+    assert store.load_claim("c-rec").state == "FAILED"
+
+    good = tmp_path / "good.json"
+    good.write_text(
+        json.dumps(
+            {
+                "statement": f"theorem {C1_THEOREM} : True",
+                "target_theorem": C1_THEOREM,
+                "mapping_report": complete_mapping_report(),
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert a3_runner.cmd_formalize(_args(tmp_path, claim_id="c-rec", from_file=str(good)), store) == 0
+    claim = store.load_claim("c-rec")
+    assert claim.state == "FORMALIZED"
+
+    report = a3_runner.cmd_replay(
+        _args(tmp_path, claim_id="c-rec", run_id=""),
+        store,
+    )
+    # cmd_replay prints JSON and returns 0/1
+    assert report == 0

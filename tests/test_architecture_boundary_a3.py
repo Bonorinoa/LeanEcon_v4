@@ -23,6 +23,7 @@ A3_MODULES = (
     "verifier.py",
     "bundle.py",
     "trace_replay.py",
+    "reviewer_policy.py",
 )
 
 

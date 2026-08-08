@@ -5,6 +5,8 @@ collaborator that takes English economic claims through reviewed interpretation,
 Lean 4 formalization, and kernel-checked verification — producing auditable
 traces and verification bundles rather than bare "compiles" claims.
 
+**Current release: v1.0.0** (package version in `pyproject.toml`).
+
 ## Product thesis
 
 Economics claims are easy to state and hard to pin down. LeanEcon v4 pairs a
@@ -18,80 +20,111 @@ conditions hold:
    interpretation, the formal statement, approval events, and run traces are
    linked in a verification bundle that can be replayed and inspected.
 
-Semantic approval is human-owned: Mistral may triage, but only the CTO or an
-authorized reviewer approves meaning. `VERIFIED` requires the complete bundle,
-not merely successful compilation.
+Semantic approval is owned by an **authorized reviewer (human or AI)** under
+CTO policy (`docs/gate3/08-reviewer-policy.md`). Models may draft; the CTO
+remains the accountable semantic authority. `VERIFIED` requires the complete
+bundle validator (12 checks, including `12_core_pin` when Core is used), not
+merely successful compilation.
+
+### v1 promise
+
+A human or AI reviewer, using the supported CLI, can turn an English economic
+claim into a kernel-checked Lean statement with an auditable verification
+bundle and replayable trace, against a pinned Lean/Mathlib workspace and a
+versioned LeanEcon Core, with models used only as optional drafting aids.
+
+### Explicit non-claims (v1)
+
+- No autonomous formalization (models are drafting aids; formalizer is not statement-faithful)
+- No B2 bounded proof loop / auto-prove
+- No multi-agent orchestration, retrieval corpus, or production VERIFIED SLA
+- No broad economics library (thin Core: micro/consumer + CE/FWT spine)
 
 ## MVP sequence
 
-- **A1 — Diagnostics**: health-first foundation. Pinned Lean/Mathlib build,
-  compiler probe, LSP status, provider connectivity, typed failure paths.
-- **A3 — Verified workflow**: claim → interpretation → review → formal statement
-  → Lean verification → auditable verification bundle and trace.
-- **B2 — Bounded proof**: automated proof search with hard wall-clock, step, and
-  repair budgets; stop on success, no progress, or budget exhaustion.
-
-A3 proceeds only when A1 is fully green. B2 proceeds only when A3 is sound.
+- **A1 — Diagnostics**: health-first foundation. ✅
+- **A3 — Verified workflow**: claim → interpretation → review → formal → Lean
+  verification → auditable bundle and trace. ✅ (v1 surface)
+- **B2 — Bounded proof**: automated proof search with hard budgets. ❌ post-v1
 
 ## Relationship to v3
 
-- **v3 is archived historical evidence.** `leanecon_v3` is frozen at tag
-  `v3-freeze-20260804` (commit `3765578eab460f9de189e40fe9b9d33ccf197baa`) and
-  is retained only as an immutable experimental record.
+- **v3 is archived historical evidence.** `leanecon_v3` is frozen and retained
+  only as an immutable experimental record.
 - **v4 is a clean-room rebuild.** No v3 custom Lean, Python, prompts, schemas,
   orchestration, tests, evaluation code, CI, Dockerfiles, provider logic, or
   configuration is copied. Every relationship to a v3 artifact is recorded in
-  the migration ledger with an explicit disposition: `import`, `adapt`,
-  `rebuild`, `inspiration`, or `historical-discard`.
-- **No v3 implementation or `.codebase-memory` is imported.** v3 scores are
-  never presented as comparable v4 scores.
-- The governance scaffold in this repository is authored from first principles
-  for v4.
+  the migration ledger with an explicit disposition.
+- No v3 implementation or `.codebase-memory` is imported. v3 scores are never
+  presented as comparable v4 scores.
 
 ## Repository status
 
-- **Gate 2** complete: governance scaffold (this branch baseline).
-- **Gate 3** closed: contracts, migration ledger, and trust boundaries —
-  see [`docs/gate3/`](docs/gate3/) (review package) and
-  [`references/gate3/`](references/gate3/).
-- **Gate 4 (A1)** closed: health-first diagnostics under
-  [`src/leanecon/`](src/leanecon/) with acceptance tests in
-  [`tests/`](tests/); all ten criteria green.
-- **Gate 5 (A3)** in review: design approved (`docs/gate5/a3-design.md`,
-  CTO 2026-08-06) and the minimal verified workflow implemented — staged,
-  uncommitted, awaiting CTO review. LeanEcon Core (Gate 6) and the B2 proof
-  loop remain out of scope.
+| Milestone | Status |
+|---|---|
+| Gate 2 governance scaffold | ✅ closed |
+| Gate 3 contracts + trust boundaries | ✅ closed (`docs/gate3/`) |
+| Gate 4 A1 diagnostics | ✅ closed |
+| Gate 5 A3 verified workflow | ✅ closed (walkthrough + hardenings) |
+| Gate 6 LeanEcon Core (P1–P5) | ✅ closed |
+| Gate 7 equilibrium-family Core | ✅ closed (PR #11) |
+| OOS batch + F1 lifecycle fix | ✅ complete (PR #12) |
+| **v0.2** reviewer recovery + AI reviewer + ops | ✅ shipped |
+| **v0.3** eval skeleton | ✅ shipped |
+| **v1.0.0** supported verified workflow | ✅ shipped |
+
+Evidence packets: `docs/releases/`. Decision log: `docs/gate3/DECISION_LOG.md`.
 
 ## A3 workflow CLI
 
-The verified workflow is driven by `python -m leanecon.a3_runner`:
+Supported live entrypoint (always prefer this after src edits):
+
+```bash
+scripts_local/a3_run.py <subcommand> [args...]
+# sets PYTHONPATH=src + profile credentials; never print secrets
+```
+
+Console script (after `uv pip install .`): `leanecon-a3`.
 
 ```text
 ingest        create a claim revision (DRAFT)
 interpret     run interpretation (live)            -> INTERPRETED -> REVIEW_REQUIRED
 review        reviewer decision: approve | reject  -> ACCEPTED | REJECTED
-formalize     run formalization (live)             -> FORMALIZED (or stays with gaps)
+              (--reviewer required; --reviewer-kind human|ai|auto)
+formalize     live formalization OR --from-file    -> FORMALIZED | FAILED
 gap-ack       reviewer acknowledges mapping gaps   (enables PROVING)
 axiom-approve reviewer approves the axiom list     (per-run reviewer record)
 verify        proof input -> PROVING -> VERIFIED | FAILED | BLOCKED (+ bundle)
-bundle        re-validate the current bundle (11-item checklist)
+bundle        re-validate the current bundle (12-item checklist)
 replay        trace replay (deterministic validation)
 status        claim state and artifact references
 ```
 
+Reviewer-authored formal recovery (when the model is blocked):
+
+```bash
+scripts_local/a3_run.py formalize --claim-id oos2 --from-file path/to/candidate.json
+# candidate JSON: {statement|statement_text, target_theorem, mapping_report}
+```
+
 Review commands require a reviewer identity (`--reviewer <id>` or
-`LEANECON_REVIEWER_ID`). Only a human reviewer may emit `ACCEPTED` or
-`REJECTED`; `VERIFIED` requires the complete verification bundle, not
-merely compilation. Live runs load credentials via
-`scripts_local/a3_walkthrough.py` (profile env, never printed).
+`LEANECON_REVIEWER_ID`). See `docs/gate3/08-reviewer-policy.md` and
+`docs/releases/v1-runbook.md`.
+
+## LeanEcon Core (v1 freeze)
+
+Promoted vocabulary under `lean_workspace/LeanEcon/Core/` (9 declarations +
+3 theorem boundaries): Primitives, Preferences, Utility, Constraints,
+Choice, Equilibrium, Theorems — including `competitiveEquilibrium_paretoEfficient`
+(FWT). Promotion criteria and ontology records: Gate 6/7 review packages.
 
 ## Credit & attribution
 
 Implementation work in this repository is performed by an AI assistant (Hermes
 Agent, by Nous Research) under the direction of the CTO. Commits are pushed
 through the CTO's GitHub account (`@Bonorinoa`); the assistant has no separate
-GitHub identity. The CTO remains the sole semantic reviewer and approver, and
-no semantic judgment or release decision is delegated to an automated agent.
+GitHub identity. The CTO remains the accountable semantic authority; authorized
+AI reviewers may act under `docs/gate3/08-reviewer-policy.md`.
 
 ## License
 

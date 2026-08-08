@@ -2,8 +2,8 @@
 
 ``VERIFIED`` is a trust claim: the bundle must let the reviewer identify
 exactly what was interpreted, approved, checked, and under which
-environment. The validator implements the eleven required checks plus the
-Core-pin check (12_core_pin, D2); a VERIFIED result requires every check
+environment. The validator implements twelve checks (the original eleven
+plus Core-pin ``12_core_pin``, D2); a VERIFIED result requires every check
 to pass. The proven or failed input statement is always retained, with
 sanity-check metadata describing the state in which it was evaluated.
 """
@@ -158,7 +158,7 @@ def build_bundle(
 
 
 def validate_bundle(store: ArtifactStore, bundle_id: str, claim) -> list[tuple[str, bool, str]]:
-    """Eleven checks (docs/gate3/05 §checklist). Returns (item, ok, detail)."""
+    """Twelve checks (docs/gate3/05 + D2 12_core_pin). Returns (item, ok, detail)."""
     checks: list[tuple[str, bool, str]] = []
     manifest = store.read_bundle_manifest(bundle_id)
     bundle_dir = store.bundle_path(bundle_id)

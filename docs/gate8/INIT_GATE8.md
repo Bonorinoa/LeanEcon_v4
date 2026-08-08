@@ -1,11 +1,10 @@
 # Gate 8 — Init brief (deferred to a new session)
 
-> Status: **handoff only** — no Gate 8 implementation in the session that
-> wrote this. Gate 7 closed (equilibrium Core batch PR #11). OOS batch
-> (2026-08-08) exercised the whole pipeline + Core-era contracts and
-> produced the priority list below. Immediate post-OOS fixes (lifecycle F1)
-> land in the cleanup PR that accompanies this brief — they are **not**
-> Gate 8.
+> Status: **SUPERSEDED by v1.0.0 ship (2026-08-08).** Primary slice
+> (`formalize --from-file`), AI reviewer policy, eval skeleton, and release
+> packets landed on the v1 ship train (DECISION_LOG 31–34). Retain this
+> brief as historical handoff context; do not re-open Gate 8 as a separate
+> feature gate unless CTO re-authorizes post-v1 work.
 >
 > Authority: Gate 6 CLOSED (DECISION_LOG 25); Gate 7 equilibrium batch
 > APPROVED+MERGED (DECISION_LOG 26–27, PR #11); OOS batch report
