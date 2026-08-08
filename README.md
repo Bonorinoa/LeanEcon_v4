@@ -121,10 +121,21 @@ Choice, Equilibrium, Theorems — including `competitiveEquilibrium_paretoEffici
 ## Credit & attribution
 
 Implementation work in this repository is performed by an AI assistant (Hermes
-Agent, by Nous Research) under the direction of the CTO. Commits are pushed
-through the CTO's GitHub account (`@Bonorinoa`); the assistant has no separate
-GitHub identity. The CTO remains the accountable semantic authority; authorized
-AI reviewers may act under `docs/gate3/08-reviewer-policy.md`.
+Agent, by Nous Research) under the direction of the CTO. Commits and PRs may be
+pushed through:
+
+- the CTO's GitHub account (`@Bonorinoa`), and/or
+- the dedicated automation contributor (`@hermessinho`)
+
+The CTO remains the **accountable semantic authority** for all meaning,
+interpretation, Core ontology, and policy decisions. `@hermessinho` is an
+operational/implementation contributor only — it does not self-approve
+economics content or bypass reviewer gates. Authorized AI reviewers (when
+acting on claims) follow `docs/gate3/08-reviewer-policy.md`.
+
+Bot token safety: store a limited-scope PAT as `LEANECON_BOT_TOKEN` (see
+`scripts/github_token.py`). Prefer it for bot-authored push/PR; keep the CTO
+token for branch-protection relax/restore flows.
 
 ## License
 

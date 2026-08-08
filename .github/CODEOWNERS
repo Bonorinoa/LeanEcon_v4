@@ -1,8 +1,18 @@
 # CODEOWNERS
-
+#
 # Authorized contributors for the LeanEcon_v4 repository.
-# The second authorized-contributor slot is reserved for the LeanEcon
-# collaboration bot account (to be created); until then, @Bonorinoa is the
-# sole authorized contributor and semantic approver.
+#
+# Governance: CTO (@Bonorinoa) remains the accountable semantic authority
+# and required approver for all meaning, Core, and policy changes
+# (DECISION_LOG 31, 35–36; docs/gate3/08-reviewer-policy.md).
+#
+# @hermessinho: formal bot / automation contributor account for Hermes Agent
+# implementation, ops, and PR automation. Holds a limited-scope PAT.
+# Does NOT self-approve semantic reviews or bypass CTO gates.
+# Core vocabulary and economic meaning still require @Bonorinoa.
 
 * @Bonorinoa
+* @hermessinho
+
+# Semantic / Core decisions still require CTO
+/lean_workspace/LeanEcon/Core/ @Bonorinoa
