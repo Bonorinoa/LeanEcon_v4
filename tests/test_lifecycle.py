@@ -76,6 +76,22 @@ def test_formalize_retry_from_failed_is_legal():
     assert validate_transition("FAILED", "FORMALIZED") is None
 
 
+def test_formalize_static_rejection_edges_are_legal():
+    """OOS 2026-08-08 F1: PROVIDER_INVALID_OUTPUT (theorem := body, D1 bare
+    core ids) emits ACCEPTED -> FAILED (first reject) and FAILED -> FAILED
+    (retry reject). Without these edges, a later VERIFIED claim still fails
+    trace replay. BLOCKED -> FAILED covers formalize entry from BLOCKED.
+    """
+    for edge in [
+        ("ACCEPTED", "FAILED"),
+        ("FAILED", "FAILED"),
+        ("BLOCKED", "FAILED"),
+        ("FORMALIZED", "FAILED"),  # already present; keep as regression pin
+    ]:
+        assert edge in TRANSITIONS, edge
+        assert validate_transition(*edge) is None, edge
+
+
 def test_unknown_states_rejected():
     assert validate_transition(None, "NOPE") is not None
     assert validate_transition("NOPE", "DRAFT") is not None
