@@ -72,6 +72,7 @@ versioned LeanEcon Core, with models used only as optional drafting aids.
 | **v0.2** reviewer recovery + AI reviewer + ops | ✅ shipped |
 | **v0.3** eval skeleton | ✅ shipped |
 | **v1.0.0** supported verified workflow | ✅ shipped |
+| **v2 in progress** — plan `docs/v2/INIT_V2.md` | ✅ Phase 1: AI reviewer exercised (3 claims VERIFIED, 100% agreement, zero code) · ✅ Phase 2: revise loop merged (PR #15) |
 
 Evidence packets: `docs/releases/`. Decision log: `docs/gate3/DECISION_LOG.md`.
 

@@ -240,3 +240,24 @@ Resolutions incorporated:
 - Item 35 second-contributor slot is filled by `@hermessinho` (ops +
   implementation). Semantic approval is still CTO-owned; bot does not
   self-approve meaning or Core promotions.
+
+---
+
+# v2 — Phase 1 evidence + Phase 2 ship (2026-08-09)
+
+**Status:** Phase 1 complete (AI reviewer exercised end-to-end on 3 fresh
+OOS claims; zero source changes). Phase 2 bounded revision loop shipped
+via PR #15 (merge `18beaa9`).
+
+| # | Item | CTO disposition | Package state |
+|---|---|---|---|
+| 37 | v2 Phase 1: AI reviewer exercised on v2p1-A/B/C — all VERIFIED (12/12 bundles incl. `12_core_pin`), AI-review agreement 3/3, zero source changes; expectations-first records `artifacts/local/v2-p1-expectations.md` + `v2-p1-record.md`; scorecard v2 `docs/eval/formalizer-scorecard.md` | Approved 2026-08-09 | **EVIDENCE** |
+| 38 | v2 Phase 2: bounded kernel-feedback revision loop (`src/leanecon/revise_loop.py`, `MAX_REVISION_ATTEMPTS=3`, audit gate authoritative over naive compile; 3 Red-first tests; suite 171) + approved plan `docs/v2/INIT_V2.md` | Approved; merged PR #15 (`18beaa9`) | **SHIPPED** |
+
+Resolutions incorporated:
+
+- Phase 2 adds no lifecycle edges (F1 rule: no `TRANSITIONS` change);
+  `replay_ok` and the 12-check bundle gate unchanged.
+- `v2.0.0` tag deferred to Phase 4 (earn rule); README reflects v2
+  in-progress status (no overclaim).
+- Phase 3 (proof-skeleton assist) continues on `v2/phase3-skeleton`.
