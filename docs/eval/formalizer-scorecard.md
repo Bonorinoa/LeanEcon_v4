@@ -26,6 +26,32 @@
 | Core FQ compliance when attempted | poor; D1 earned keep |
 | Suitable as sole author of VERIFIED | **0%** — reviewer proof load-bearing |
 
+## v2 record (2026-08-09 — Phase 1 claims + revision-loop evidence)
+
+Model: labs-leanstral-1-5 (unchanged). Claims v2p1-A/B/C: fresh OOS,
+simple-class, all three ended VERIFIED via the CTO-authorized reviewer
+recovery path (v1 `formalize --from-file`).
+
+| Claim | Live attempts (waves) | Attempt outcomes | Audit/contamination | Recovery → endpoint |
+|---|---|---|---|---|
+| v2p1-A | 2 | wave1 `:=` body (line 1); wave2 `:=` body | static reject ×2; no artifact (v1 guard) | reviewer from-file → FORMALIZED → VERIFIED |
+| v2p1-B | 2 | wave1 `sorry` + `:=` (line 25) | **contamination caught pre-kernel** (B2 lesson live) | reviewer from-file → VERIFIED |
+| v2p1-C | 2 | wave1 `:=` body; wave2 `:=` body | static reject ×2; mapping drift (added non-source quantifiers) flagged at EI review | reviewer from-file (D1 fixes) → VERIFIED |
+
+Loop evidence (Phase 2, `src/leanecon/revise_loop.py` + `tests/test_revise_loop.py`):
+- Contamination gate: a sorry-carrying draft is rejected by audit even when
+  a naive probe reports "compiles" — test + live (v2p1-B) evidence.
+- Budget: MAX_REVISION_ATTEMPTS=3 enforced; no silent 4th attempt (test).
+- Attempt distribution (live): 2 waves × 3 claims, all static-rejected;
+  reviewer recovery per v1 surface (unchanged).
+
+| Metric (v2 set) | Observation |
+|---|---|
+| Statement-valid first try (live) | 0/3 (consistent with v1 ~1/8) |
+| Static reject catch rate | 6/6 attempts caught (2 waves × 3) |
+| Contamination caught before kernel | 1/1 (v2p1-B `sorry`) |
+| Suitable as sole author of VERIFIED | unchanged **0%** — reviewer proof load-bearing |
+
 ## Tooling that remains load-bearing
 
 `validate_statement_text`, `validate_scaffolding_namespace`, D1 FQ check,
