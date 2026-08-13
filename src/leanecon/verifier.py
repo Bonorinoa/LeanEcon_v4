@@ -151,10 +151,11 @@ def probe_statement_compiles(workspace_root: Path, statement_text: str, timeout_
         statement_text = "import Mathlib\nimport Mathlib.Tactic\n" + statement_text
     source_path.write_text(statement_text, encoding="utf-8")
     exit_code, stdout, stderr, _ = run_lake_env_lean(workspace_root, source_path, timeout_s)
+    tail_src = "\n".join(part for part in (stderr or "", stdout or "") if part).strip()
     return {
         "compiles": exit_code == 0,
         "exit_code": exit_code,
-        "stderr_tail": (stderr or "")[-400:],
+        "stderr_tail": tail_src[-400:],
     }
 
 

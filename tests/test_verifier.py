@@ -181,6 +181,19 @@ def test_probe_statement_compiles_real_workspace(elan_on_path):
     assert broken["exit_code"] not in (None, 0)
 
 
+def test_probe_stderr_tail_includes_stdout_when_stderr_empty(monkeypatch, tmp_path):
+    """Lean prints errors on stdout; an empty-stderr exit 1 must still surface them."""
+    (tmp_path / "lean-toolchain").write_text("leanprover/lean4:v4.32.2\n")
+    (tmp_path / "lakefile.lean").write_text("import Lake\n")
+    monkeypatch.setattr(
+        verifier, "run_lake_env_lean",
+        lambda *a, **k: (1, "unknown identifier Foo", "", False),
+    )
+    result = verifier.probe_statement_compiles(tmp_path, "theorem t : True")
+    assert result["compiles"] is False
+    assert "unknown identifier Foo" in result["stderr_tail"]
+
+
 def test_lake_missing_is_blocked(tmp_path, monkeypatch):
     (tmp_path / "lean-toolchain").write_text("leanprover/lean4:v4.32.2\n")
     (tmp_path / "lakefile.lean").write_text('import Lake\nrequire "leanprover-community" / "mathlib" @ git "v4.32.2"\n')

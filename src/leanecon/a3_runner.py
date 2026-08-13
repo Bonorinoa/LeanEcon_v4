@@ -445,6 +445,7 @@ def formalize_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run
     """
     ei = store.read_ei(claim.claim_id, claim.accepted_ei_rev)
     stash: dict[str, Any] = {"parsed": None, "response": None, "parse_error": None}
+    last_clean: dict[str, Any] = {"parsed": None, "response": None}
 
     def draft_fn(history: list[Feedback]) -> str:
         prompt = formalize_prompt(ei)
@@ -486,11 +487,14 @@ def formalize_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run
         problems.extend(validate_scaffolding_namespace(stmt))
         mapping_problems, _gaps = validate_mapping_report(stash["parsed"]["mapping_report"], ei)
         problems.extend(mapping_problems)
+        if not problems:
+            last_clean["parsed"] = stash["parsed"]
+            last_clean["response"] = stash["response"]
         return problems
 
-    # Dummy probe: D2 — do not spend budget on compile-fail retries.
-    def loop_probe(_stmt: str) -> tuple[bool, str]:
-        return True, ""
+    def loop_probe(stmt: str) -> tuple[bool, str]:
+        probe = probe_statement_compiles(workspace_root, stmt)
+        return bool(probe.get("compiles")), probe.get("stderr_tail") or ""
 
     try:
         outcome = revise_statement_draft(draft_fn, audit, loop_probe)
@@ -501,10 +505,10 @@ def formalize_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run
         return "BLOCKED", None
 
     history_payload = [_feedback_as_dict(item) for item in outcome.revision_history]
-    parsed = stash["parsed"]
-    response = stash["response"]
+    parsed = last_clean["parsed"]
+    response = last_clean["response"]
 
-    if not outcome.accepted or parsed is None:
+    if parsed is None:
         last_problems: list[str] = []
         if outcome.revision_history:
             last_problems = list(outcome.revision_history[-1].static_problems)
@@ -539,7 +543,15 @@ def formalize_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run
                              "revision_history": history_payload})
         return "FAILED", None
     gaps = classify_gaps(gaps, parsed["mapping_report"])
-    probe = probe_statement_compiles(workspace_root, parsed["statement"])
+    # The loop already probed the accepted draft; reuse that result instead of
+    # a third call (probe is a signal, and the budget covers attempts, not
+    # post-hoc re-probes).
+    last_feedback = outcome.revision_history[-1]
+    probe = {
+        "compiles": bool(last_feedback.probe_compiles),
+        "exit_code": 0 if last_feedback.probe_compiles else 1,
+        "stderr_tail": last_feedback.probe_stderr or "",
+    }
     vacuity = vacuity_warning(parsed["statement"])
     imports = [line.split("import", 1)[1].strip() for line in parsed["statement"].splitlines()
                if line.strip().startswith("import")]

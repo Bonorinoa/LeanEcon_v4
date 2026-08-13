@@ -24,6 +24,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from leanecon import a3_runner
 from leanecon.claim_store import ArtifactStore, ClaimRecord
 from leanecon.events import EventLog
@@ -36,6 +38,18 @@ from tests.conftest import (
 )
 
 C1_THEOREM = "leanecon_c1_attainable_monotone"
+
+
+@pytest.fixture(autouse=True)
+def _fast_probe(monkeypatch):
+    """Keep mocked formalize runs fast and CI-deterministic: the live loop now
+    calls the real compile probe, which is a `lake env lean` call. Unit tests
+    patch it; the probe itself has a dedicated real-workspace test."""
+    monkeypatch.setattr(
+        a3_runner, "probe_statement_compiles",
+        lambda *a, **k: {"compiles": True, "exit_code": 0, "stderr_tail": ""},
+    )
+    yield
 
 
 def _accepted_claim(
@@ -161,3 +175,50 @@ def test_attempt_two_success_records_revision_attempts_equals_two(tmp_path):
     # Second request must have been given prior feedback (kernel/static).
     second_prompt = adapter.requests_seen[1]["payload"]["prompt"]
     assert "sorry" in second_prompt.lower() or "static" in second_prompt.lower()
+
+
+def test_audit_clean_probe_fail_retries_then_keeps_formalized(tmp_path, monkeypatch):
+    """D2: probe-fail does not FAIL the claim. Leftover budget may chase compile."""
+    probes = iter([
+        {"compiles": False, "exit_code": 1, "stderr_tail": "unknown identifier"},
+        {"compiles": True, "exit_code": 0, "stderr_tail": ""},
+    ])
+    monkeypatch.setattr(
+        a3_runner, "probe_statement_compiles",
+        lambda *a, **k: next(probes),
+    )
+    store, claim, events_dir, run_id, log = _accepted_claim(tmp_path, "c-loop-probe")
+    clean = formalize_output("theorem t : True", "t")
+    adapter = FakeAdapter(formalize_factory=_sequence_factory([clean, clean]))
+
+    state, candidate = a3_runner.formalize_claim(
+        claim, store, log, run_id, adapter, WORKSPACE
+    )
+
+    assert state == "FORMALIZED"
+    assert candidate is not None
+    assert candidate["revision_attempts"] == 2
+    assert candidate["statement_probe"]["compiles"] is True
+    assert len(adapter.requests_seen) == 2
+    second_prompt = adapter.requests_seen[1]["payload"]["prompt"]
+    assert "unknown identifier" in second_prompt
+
+
+def test_three_audit_clean_probe_fails_still_formalized(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        a3_runner, "probe_statement_compiles",
+        lambda *a, **k: {"compiles": False, "exit_code": 1, "stderr_tail": "boom"},
+    )
+    store, claim, events_dir, run_id, log = _accepted_claim(tmp_path, "c-loop-p3")
+    clean = formalize_output("theorem t : True", "t")
+    adapter = FakeAdapter(formalize_factory=_sequence_factory([clean, clean, clean, clean]))
+
+    state, candidate = a3_runner.formalize_claim(
+        claim, store, log, run_id, adapter, WORKSPACE
+    )
+
+    assert state == "FORMALIZED"
+    assert candidate is not None
+    assert candidate["revision_attempts"] == 3
+    assert candidate["statement_probe"]["compiles"] is False
+    assert len(adapter.requests_seen) == 3
