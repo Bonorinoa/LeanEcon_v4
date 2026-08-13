@@ -78,6 +78,19 @@ Held-out v3h-A/B/C/D (frozen split `docs/eval/v3-claim-split.md`).
 | sole_author_verified | **0** |
 | 60–70% verdict | **MISSED** (needs 3/4) |
 
+## v3 held-out 2 (2026-08-13 — FINAL pipeline)
+
+| Claim | Attempts | Outcome | Probe | draft_complete |
+|---|---|---|---|---|
+| v3h2-A | 3 | FAILED | n/a | ❌ |
+| v3h2-B | 3 | FAILED | n/a | ❌ |
+| v3h2-C | 3 | FAILED | n/a | ❌ |
+| v3h2-D | 3 | FORMALIZED | FALSE | ❌ |
+
+first_try **0/4**, draft_complete **0/4**, sole_author **0**.
+Combined held-out (both splits, n=8): draft_complete **2/8 = 25%**.
+**Verdict: MISSED.**
+
 Probe amendment (METRICS §3.1 operationalization): bare signatures can
 never compile as `theorem` (Lean requires a body); probe rewrites to
 `axiom` to measure signature elaboration. Kernel audit untouched.

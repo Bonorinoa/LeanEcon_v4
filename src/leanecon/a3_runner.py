@@ -82,7 +82,7 @@ from leanecon.verifier import (
     verify_candidate,
 )
 
-BUILDER_IDENTITY = "leanecon-a3-2.0.0"
+BUILDER_IDENTITY = "leanecon-a3-3.0.0"
 
 REPO_ROOT = find_repo_root()
 WORKSPACE = REPO_ROOT / "lean_workspace"
@@ -544,14 +544,18 @@ def formalize_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run
         return "FAILED", None
     gaps = classify_gaps(gaps, parsed["mapping_report"])
     # The loop already probed the accepted draft; reuse that result instead of
-    # a third call (probe is a signal, and the budget covers attempts, not
-    # post-hoc re-probes).
-    last_feedback = outcome.revision_history[-1]
-    probe = {
-        "compiles": bool(last_feedback.probe_compiles),
-        "exit_code": 0 if last_feedback.probe_compiles else 1,
-        "stderr_tail": last_feedback.probe_stderr or "",
-    }
+    # a third call. The accepted draft is the last AUDIT-CLEAN attempt (its
+    # feedback carries the probe result); later attempts may be static-rejects.
+    probed = [item for item in outcome.revision_history if item.probe_compiles is not None]
+    last_probed = probed[-1] if probed else None
+    if last_probed is not None:
+        probe = {
+            "compiles": bool(last_probed.probe_compiles),
+            "exit_code": 0 if last_probed.probe_compiles else 1,
+            "stderr_tail": last_probed.probe_stderr or "",
+        }
+    else:
+        probe = {"compiles": None, "exit_code": None, "stderr_tail": ""}
     vacuity = vacuity_warning(parsed["statement"])
     imports = [line.split("import", 1)[1].strip() for line in parsed["statement"].splitlines()
                if line.strip().startswith("import")]

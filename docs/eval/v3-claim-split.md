@@ -1,40 +1,83 @@
-# v3 claim split (Phase 2 — HELD-OUT FROZEN 2026-08-13)
+# v3 claim splits — held-out evaluation record
 
-**Status:** HELD-OUT set frozen 2026-08-13 (branch `v3/phase1-wire-loop`
-@ `715bb52`). Scoring = `scripts/eval_formalizer.py` + live `a3_run.py`.
-60–70% may be claimed **only** from this table after a live run.
+**Attribution:** Hermes Agent (Nous Research) under CTO direction.
+CTO remains the sole semantic approver.
 
-## Dev / regression (scorer fixtures; do not tune prompts only to these)
+## Dev / regression
 
-`c1–c4`, `fwt1`, `oos1–2` (v1 claim set) + synthetic cases in
-`tests/fixtures/eval/formalizer/` (CI scores those; no provider).
+`c1–c4`, `fwt1`, `oos1–2`, and `tests/fixtures/eval/formalizer/`.
+The deterministic CI scorer covers the committed fixture directory only;
+it does not replace live held-out measurement.
 
-## v2 memory (pipeline-change comparison)
+## Held-out 1 — v3h-A/B/C/D (frozen 2026-08-13)
 
-`v3p1-A/B/C` — same text as VERIFIED `v2p1-A/B/C`, new ids. Live
-2026-08-13: first_try_valid 1/3, A=1/C=2/B=null attempts. Do **not**
-re-formalize `v2p1-*`.
-
-## HELD-OUT v3 (the 60–70% set — frozen)
-
-Fresh simple-class texts, no verbatim overlap with any existing
-`source_text` (checked against all claim files). Existing Core only
-(`budgetSet`, `budgetSetEndowment`, `attainableSet`, `marketClearing`,
-`competitiveEquilibrium`, `strictlyIncreasing`); no calculus, no
-existence, no game theory. Proofs follow existing fixture patterns.
+First held-out set, frozen before its live run. Fresh simple-class texts,
+with no verbatim overlap against the existing claim files. Existing Core
+only; no calculus, existence, or game theory.
 
 | id | Text | Core anchor | Expected proof pattern |
 |---|---|---|---|
-| v3h-A | If every price weakly falls (p' g ≤ p g for every good g) while income m is unchanged, the budget set weakly expands: any bundle affordable at prices p remains affordable at prices p'. | `budgetSet` | `Finset.sum_le_sum` + `mul_le_mul_of_nonneg_right` + `le_trans`; stated nonnegativity of the bundle |
-| v3h-B | In an exchange economy, at any competitive equilibrium the allocation is feasible: markets clear. | `competitiveEquilibrium` | structure projection `h.feasible` |
-| v3h-C | The attainable set is exactly the budget set: a bundle is attainable precisely when it is affordable. | `attainableSet` | definitional (rfl / iff of membership) |
-| v3h-D | In an exchange economy, if markets clear and every consumer's bundle lies in their endowment-relative budget set, then aggregate expenditure does not exceed aggregate endowment value. | `marketClearing`, `budgetSetEndowment` | per-agent `sum_le_sum` over `Finset`; inequality version of the Walras identity |
+| v3h-A | If every price weakly falls (p' g ≤ p g for every good g) while income m is unchanged, the budget set weakly expands: any bundle affordable at prices p remains affordable at prices p'. | `budgetSet` | `Finset.sum_le_sum` + `mul_le_mul_of_nonneg_right` + `le_trans` |
+| v3h-B | In an exchange economy, at any competitive equilibrium the allocation is feasible: markets clear. | `competitiveEquilibrium` | structure projection |
+| v3h-C | The attainable set is exactly the budget set: a bundle is attainable precisely when it is affordable. | `attainableSet` | definitional equality |
+| v3h-D | In an exchange economy, if markets clear and every consumer's bundle lies in their endowment-relative budget set, then aggregate expenditure does not exceed aggregate endowment value. | `marketClearing`, `budgetSetEndowment` | per-agent finite-sum inequality |
 
-Scored: `first_try_valid`, `attempts_to_valid`, `probe_compiles`,
-`draft_complete` (audit-clean ∧ probe ∧ no vacuity/inversion),
-`static_reject_class`, `sole_author_verified` (expected 0).
+**Actual:** draft-complete **2/4 = 50%**, first-try **0/4**. Verdict:
+**MISSED**. Full actuals are in `artifacts/local/v3-heldout-expectations.md`.
+
+## Held-out 2 — v3h2-A/B/C/D (frozen 2026-08-13, pipeline `5e80182`)
+
+This second set was frozen before its live run against the improved
+pipeline (probe import handling and D1 prompt discipline). It must not be
+substituted for or overwrite Held-out 1.
+
+Fresh simple-class texts; no verbatim overlap with existing `source_text`
+(c1–c4, c1r2, fwt1, oos1–3, v2p1, v3p1, v3h). Existing Core only; proofs
+follow existing fixture patterns.
+
+| id | Text | Core anchor | Proof pattern |
+|---|---|---|---|
+| v3h2-A | If every price weakly falls (p' g ≤ p g for every good g) and income weakly rises (m ≤ m'), then the budget set weakly expands: any bundle affordable at prices p with income m remains affordable at prices p' with income m'. | `budgetSet` | `Finset.sum_le_sum` + `mul_le_mul_of_nonneg_right` + `le_trans` |
+| v3h2-B | In an exchange economy, at any competitive equilibrium, each consumer's equilibrium bundle lies in their endowment-relative budget set. | `competitiveEquilibrium` | projection of the `maximizes` field's first conjunct |
+| v3h2-C | If income does not decrease (m ≤ m') at unchanged prices, the budget set weakly expands: every bundle affordable at income m remains affordable at income m'. | `budgetSet` | transitivity of `≤` |
+| v3h2-D | If income is nonnegative, the zero consumption bundle is affordable at any prices. | `budgetSet` | `Finset.sum_zero` + `0 ≤ m` |
+
+**Actual:** draft-complete **0/4**, first-try **0/4**. Verdict:
+**MISSED**. Full actuals are in `artifacts/local/v3-heldout2-expectations.md`.
+
+## Combined result
+
+| Split | n | draft-complete | first-try | sole-author VERIFIED |
+|---|---:|---:|---:|---:|
+| v3h | 4 | 2/4 (50%) | 0/4 | 0 |
+| v3h2 | 4 | 0/4 (0%) | 0/4 | 0 |
+| **combined** | **8** | **2/8 (25%)** | **0/8** | **0** |
+
+The 60–70% draft target is **not met**. No release claim may imply that it
+was met.
+
+## Measurement note
+
+The probe operationalization was amended after the first run: Lean requires
+a body after a `theorem`, so a bare signature cannot pass `lake env lean`.
+The probe rewrites a signature-only declaration to `axiom` to test signature
+elaboration. The kernel audit remains unchanged; the probe remains a signal
+under INIT_V3 D2. This is documented in `docs/v3/METRICS.md` and the
+expectations files. No held-out text was changed after scoring.
 
 **Boundary (not scored):** `oos3` (Nash existence).
 
 **Attribution:** Hermes Agent (Nous Research) under CTO direction.
 CTO remains the sole semantic approver.
+
+---
+
+## Evaluation integrity
+
+- Predictions were written before each live run.
+- Held-out claims used new IDs and distinct event files.
+- The spent held-out sets are not to be re-formalized for tuning.
+- CI fixture scoring is provider-free; live held-out results are recorded
+  separately as artifacts and not regenerated by CI.
+
+**Attribution:** Hermes Agent (Nous Research) under CTO direction.
