@@ -93,6 +93,14 @@ def test_formalize_prompt_has_hardened_rules():
     assert "never 'object:u'" in prompt
 
 
+def test_formalize_prompt_namespace_is_sanitized():
+    ei = valid_ei()
+    ei["claim_id"] = "v3p1-A"
+    prompt = formalize_prompt(ei)
+    assert "A3Scaffolding.v3p1_A" in prompt
+    assert "never '-'" in prompt
+
+
 def test_validate_statement_text_rejects_contract_violations():
     from leanecon.formalization import validate_statement_text
 

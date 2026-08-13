@@ -101,6 +101,15 @@ def validate_mapping_report(report: list[dict], ei: dict) -> tuple[list[str], li
     return problems, gaps
 
 
+def _sanitize_namespace(claim_id: str) -> str:
+    """Lean namespace segment: only letters, digits, _ and '.'. Claim ids like
+    'v3h2-A' or 'v3p1-A' contain '-' which is not a valid Lean identifier
+    character — the scaffold namespace must use a sanitized form."""
+    cleaned = "".join(ch if ch.isalnum() or ch in "._" else "_" for ch in claim_id)
+    cleaned = cleaned.strip(".")
+    return cleaned or "claim"
+
+
 def formalize_prompt(ei: dict) -> str:
     """Prompt for the formalize capability (MVP model per adapter config).
 
@@ -140,8 +149,11 @@ def formalize_prompt(ei: dict) -> str:
         "- The statement may define small A3-local scaffolding definitions first "
         "(clearly commented 'A3-local scaffolding, not LeanEcon Core'). "
         "Scaffolding MUST be namespace-scoped: put it inside "
-        "'namespace A3Scaffolding.<claim_id> ... end' — never at the root "
-        "namespace (root declarations can shadow Mathlib identifiers within the file).\n"
+        f"'namespace A3Scaffolding.{_sanitize_namespace(str(ei.get('claim_id') or 'claim'))} ... end' "
+        "— never at the root "
+        "namespace (root declarations can shadow Mathlib identifiers within the file). "
+        "Use only letters, digits, dots and underscores in the namespace — never '-' "
+        "or other punctuation (claim ids like 'v3p1-A' must become e.g. 'v3p1_A').\n"
         "- The mapping_report must contain one row per material EI element with "
         "fields: ei_element_id, ei_element_kind, lean_identifier, mapping_kind "
         "(mathlib|core|glossary_term|local_definition), status (mapped|unmapped|deferred), "
