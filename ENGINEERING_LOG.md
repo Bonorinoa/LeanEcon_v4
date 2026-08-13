@@ -163,3 +163,21 @@ and must be resolved before any release-labeled work.
 - Unresolved gaps block `verify`. Claim state unchanged.
 - Suite **194**. Live edit-distance on v3p1 **halted** (no model
   skeleton). See `docs/eval/skeleton-measurement.md`.
+
+## 2026-08-13 — v3 held-out run + probe amendment (unreleased)
+
+- **Probe instrument amended (measurement fix, not prompt tune):** Lean
+  requires a body after `theorem`, so bare signatures could never pass
+  the probe ("expected ':='") — draft-complete was structurally
+  unreachable. `probe_statement_compiles` now rewrites to `axiom`
+  (signature elaboration check). Kernel audit untouched. Red tests
+  first. Suite **199**.
+- Loop now feeds real probe stderr back into the next prompt; the last
+  audit-clean attempt's probe result is what lands on the artifact.
+- Held-out frozen split `docs/eval/v3-claim-split.md` (v3h-A/B/C/D,
+  simple-class, existing Core only).
+- Predictions first (`artifacts/local/v3-heldout-expectations.md`), then
+  live: A FORMALIZED t3 probe TRUE; B FAILED ×3; C FORMALIZED probe
+  FALSE (metavars); D FORMALIZED t2 probe TRUE.
+- **Verdict: 60–70% MISSED — draft_complete 2/4 (50%).** first_try 0/4,
+  sole_author 0%. Loop earned both successes (A=3, D=2). No tag.

@@ -58,6 +58,30 @@ Edit-distance / time-to-VERIFIED measurement on v2p1 proofs DEFERRED —
 no measurement rows yet; contract only. Not a v2 claim of 60–70% draft
 completion.
 
+## v3 held-out (2026-08-13 — FINAL pipeline)
+
+Held-out v3h-A/B/C/D (frozen split `docs/eval/v3-claim-split.md`).
+
+| Claim | Attempts | Outcome | Probe (axiom-wrap) | draft_complete |
+|---|---|---|---|---|
+| v3h-A | 3 | FORMALIZED | **TRUE** | ✅ |
+| v3h-B | 3 | FAILED, no artifact | n/a | ❌ |
+| v3h-C | 3 | FORMALIZED | FALSE (metavars) | ❌ |
+| v3h-D | 2 | FORMALIZED | **TRUE** | ✅ |
+
+| Metric | Value |
+|---|---|
+| first_try_valid | **0/4** |
+| attempts_to_valid | A=3, B=null, C=null, D=2 |
+| draft_complete (60–70% predicate) | **2/4 = 50%** |
+| static rejects | D1 (C t2–t3, A t1), `:=` (A t1) |
+| sole_author_verified | **0** |
+| 60–70% verdict | **MISSED** (needs 3/4) |
+
+Probe amendment (METRICS §3.1 operationalization): bare signatures can
+never compile as `theorem` (Lean requires a body); probe rewrites to
+`axiom` to measure signature elaboration. Kernel audit untouched.
+
 ## v3 Phase 1 (2026-08-13 — loop wired + live same-text set)
 
 `a3_runner.formalize_claim` calls `revise_statement_draft`

@@ -2,7 +2,8 @@
 
 **Status:** Phase 0 approved. Phase 1 implemented (live 1/3 first-try).
 Phase 2 scorer exists on this branch (`leanecon.eval_formalizer`).
-Hand-edited numbers after this file’s scorer exists are a bug.
+Held-out scored 2026-08-13: draft_complete **2/4 (50%)** — verdict
+**MISSED**. Hand-edited numbers after this file’s scorer exists are a bug.
 **Question this answers:** are the current evals objective measures of
 system quality?
 
@@ -94,6 +95,17 @@ On the **held-out simple-class set**, after the live loop (budget ≤ 3):
 >
 > **60–70% met** = draft-complete on ≥ 60% of held-out claims
 > *without* `--from-file`. Reviewer proofs do not count.
+
+**Probe operationalization (amended 2026-08-13):** Lean requires a
+body after a `theorem` conclusion, so a bare signature can never pass
+`lake env lean` ("expected ':='") — the probe as first written made
+draft-complete structurally unreachable for the signature-only
+contract (live evidence: v3p1 and v3h rev-1 all failed). The probe now
+rewrites the declaration to `axiom` and checks that the SIGNATURE
+elaborates. This measures what §3.1 intended ("the model produced a
+non-vacuous compiling signature"); it is a measurement change, not a
+prompt tune — no held-out text was modified, and the kernel axiom
+audit at verify is untouched (probe remains a signal, INIT_V3 D2).
 
 This is still not semantic fidelity. It is “the model produced a
 non-vacuous compiling signature the reviewer can argue with.” That is

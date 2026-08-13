@@ -1,39 +1,40 @@
-# v3.0.0 — NOT EARNED (do not tag)
+# v3.0.0 — verdict MISSED (do not tag)
 
-**Status:** draft honesty packet. **Do not tag.** INIT_V3 Phase 5 earn
-rule is not met.
+**Status:** held-out scored 2026-08-13. 60–70% **NOT met**. **Do not
+tag.** INIT_V3 Phase 5 earn rule is not met (verdict must be met, or a
+CTO-approved narrowed promise; this is neither).
 
-## What this branch has
+## Held-out numbers (frozen split, final pipeline)
 
-| Phase | Commit | Check |
-|---|---|---|
-| 1 wire the loop | `47472bc` | pytest 180 at land; live v3p1 first_try **1/3** |
-| 2 scorer | `a2ede92` | 9 fixture tests; `provider_calls==0`; CI hook |
-| 3 skeleton CLI | `8ba7510` | 5 tests; unresolved gaps block verify |
-| 4 decomposition | skipped | `docs/v3/PHASE4_SKIP.md` |
-| suite now | | **194** |
+| Claim | Attempts | Outcome | Probe | draft_complete |
+|---|---|---|---|---|
+| v3h-A | 3 | FORMALIZED | TRUE | ✅ |
+| v3h-B | 3 | FAILED | n/a | ❌ |
+| v3h-C | 3 | FORMALIZED | FALSE | ❌ |
+| v3h-D | 2 | FORMALIZED | TRUE | ✅ |
 
-## What v3.0.0 would have required
+- first_try_valid **0/4**; attempts_to_valid A=3 / D=2 / B,C null
+- draft_complete **2/4 = 50%** (threshold 3/4)
+- sole_author_verified **0%**; 60–70% **MISSED**
+- Probe instrument amended (axiom-wrap) — measurement fix, documented
+  in METRICS §3.1; no prompt was tuned to the held-out set.
 
-- Scorer numbers on a **frozen held-out** split
-- Honest 60–70% verdict (met / missed / narrowed)
-- Held-out claims CTO-approved and ingested
-- README non-claims + DECISION_LOG items
-- Builder bump
+## Why the branch exists
 
-## Honest verdict
+Loop wired, scorer + CI, skeleton CLI, probe feedback in the loop,
+held-out scored. All unreleased on `v3/phase1-wire-loop`.
 
-**Missed.** first_try_valid 1/3 on v2-memory. Both FORMALIZED statements
-failed the compile probe. Sole-author VERIFIED **0%**. Held-out row
-count **0**. Claiming 60–70% would be a lie.
+## What v3.0.0 would still need
 
-`--from-file` remains recovery. Reviewer + `#print axioms` / `sorryAx`
-unchanged.
+- draft_complete ≥ 60% on held-out **or** a CTO-approved narrowed
+  promise (e.g. "within-budget valid, probe optional" — a real
+  definition change, CTO decision)
+- README non-claims + DECISION_LOG items + builder bump
+- `docs/releases/v3.0.0.md` + CTO-approved tag
 
 ## Tag rule
 
-No `v3.0.0` from this packet. Ship Phase 1–3 as a **v2.x / unreleased
-branch** only after CTO review + PR. This file is not `docs/releases/v3.0.0.md`.
+No `v3.0.0` from this packet. This file is not a release packet.
 
 **Attribution:** Hermes Agent (Nous Research) under CTO direction.
 CTO remains the sole semantic approver.
