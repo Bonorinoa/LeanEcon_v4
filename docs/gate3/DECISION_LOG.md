@@ -240,3 +240,54 @@ Resolutions incorporated:
 - Item 35 second-contributor slot is filled by `@hermessinho` (ops +
   implementation). Semantic approval is still CTO-owned; bot does not
   self-approve meaning or Core promotions.
+
+---
+
+# v2 — Phase 1 evidence + Phase 2 ship (2026-08-09)
+
+**Status:** Phase 1 complete (AI reviewer exercised end-to-end on 3 fresh
+OOS claims; zero source changes). Phase 2 bounded revision loop shipped
+via PR #15 (merge `18beaa9`).
+
+| # | Item | CTO disposition | Package state |
+|---|---|---|---|
+| 37 | v2 Phase 1: AI reviewer exercised on v2p1-A/B/C — all VERIFIED (12/12 bundles incl. `12_core_pin`), AI-review agreement 3/3, zero source changes; expectations-first records `artifacts/local/v2-p1-expectations.md` + `v2-p1-record.md`; scorecard v2 `docs/eval/formalizer-scorecard.md` | Approved 2026-08-09 | **EVIDENCE** |
+| 38 | v2 Phase 2: bounded kernel-feedback revision loop (`src/leanecon/revise_loop.py`, `MAX_REVISION_ATTEMPTS=3`, audit gate authoritative over naive compile; 3 Red-first tests; suite 171) + approved plan `docs/v2/INIT_V2.md` | Approved; merged PR #15 (`18beaa9`) | **SHIPPED** |
+
+Resolutions incorporated:
+
+- Phase 2 adds no lifecycle edges (F1 rule: no `TRANSITIONS` change);
+  `replay_ok` and the 12-check bundle gate unchanged.
+- `v2.0.0` tag deferred to Phase 4 (earn rule); README reflects v2
+  in-progress status (no overclaim).
+- Phase 3 (proof-skeleton assist) continues on `v2/phase3-skeleton`.
+
+---
+
+# v2.0.0 Phoenix — Phase 3 contract + release (2026-08-12)
+
+**Status:** CTO authorized the Phoenix tag on 2026-08-12 (push remaining
+changes, merge if checks green, tag v2, delete inactive branches).
+Auto-formalize of NL (later LaTeX) into formal IRs the prover can
+consume is the **v3 direction**, not an abandoned promise.
+
+| # | Item | CTO disposition | Package state |
+|---|---|---|---|
+| 39 | v2 Phase 3: proof-skeleton contract (`src/leanecon/skeleton.py`, 5 Red-first tests, suite 176); edit-distance / time-to-VERIFIED measurement deferred | Authorized with the Phoenix ship | **SHIPPED (contract)** |
+| 40 | v2.0.0 Phoenix release: package `2.0.0`, builder `leanecon-a3-2.0.0`, `docs/releases/v2.0.0.md` + `v2-surface.md`, B2 spike tracked, clean-clone P1 recorded; 60–70% draft target recorded as v3 measurement goal | Authorized 2026-08-12 | **SHIPPED** |
+
+Resolutions incorporated:
+
+- Phoenix claims the assist *foundation*, not measured 60–70% model-draft
+  completion. Models run live (`interpret` / `formalize`); `--from-file`
+  remains load-bearing recovery.
+- `revise_loop` and `skeleton` stay library modules (not CLI). Wiring
+  them into `formalize` / a prover agent is v3 work.
+- B2 spike (`spikes/001-bounded-search/`) is tracked evidence that
+  compile≠pass; no auto-prove ships in v2.
+- Direction lock for v3 (this item, not a v3 design): constrained
+  auto-formalize of natural language (and later typing + LaTeX) into
+  formal representations (today EI + mapping + Lean; later graphs /
+  embeddings / other IRs) that a prover agent can process, with
+  decomposition and kernel-feedback loops on top. Reviewer + axiom
+  audit remain non-bypassable.

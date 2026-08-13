@@ -113,3 +113,18 @@ and must be resolved before any release-labeled work.
   packets v0.2/v0.3/v1.0; package `1.0.0`; builder `leanecon-a3-1.0.0`.
 - Ops standing rule: always `scripts_local/a3_run.py` for live A3 (stale
   install can drop D2). Second GitHub approver still open.
+
+## 2026-08-09 — v2 Phases 1–2
+
+- Phase 1: AI reviewer exercised on v2p1-A/B/C (3/3 VERIFIED, 3/3
+  agreement, zero source). Formalizer live 0/3 first-try; `--from-file`
+  recovery load-bearing.
+- Phase 2: `revise_loop.py` merged PR #15 (`18beaa9`). Audit gate over
+  naive compile; budget 3; not CLI surface.
+
+## 2026-08-12 — v2.0.0 Phoenix
+
+- Phase 3 skeleton contract + release packet. Package `2.0.0`, builder
+  `leanecon-a3-2.0.0`. B2 spike tracked. 60–70% draft target recorded as
+  the v3 measurement goal; auto-formalize of NL/LaTeX → IR is the v3
+  *direction*, not an abandoned promise.

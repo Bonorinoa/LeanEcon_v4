@@ -52,6 +52,12 @@ Loop evidence (Phase 2, `src/leanecon/revise_loop.py` + `tests/test_revise_loop.
 | Contamination caught before kernel | 1/1 (v2p1-B `sorry`) |
 | Suitable as sole author of VERIFIED | unchanged **0%** — reviewer proof load-bearing |
 
+Phase 3 (2026-08-09 / shipped 2026-08-12 Phoenix): skeleton contract
+shipped (`src/leanecon/skeleton.py`, 5 Red-first tests green, suite 176).
+Edit-distance / time-to-VERIFIED measurement on v2p1 proofs DEFERRED —
+no measurement rows yet; contract only. Not a v2 claim of 60–70% draft
+completion.
+
 ## Tooling that remains load-bearing
 
 `validate_statement_text`, `validate_scaffolding_namespace`, D1 FQ check,

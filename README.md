@@ -5,7 +5,7 @@ collaborator that takes English economic claims through reviewed interpretation,
 Lean 4 formalization, and kernel-checked verification — producing auditable
 traces and verification bundles rather than bare "compiles" claims.
 
-**Current release: v1.0.0** (package version in `pyproject.toml`).
+**Current release: v2.0.0 Phoenix** (package version in `pyproject.toml`).
 
 ## Product thesis
 
@@ -26,26 +26,38 @@ remains the accountable semantic authority. `VERIFIED` requires the complete
 bundle validator (12 checks, including `12_core_pin` when Core is used), not
 merely successful compilation.
 
-### v1 promise
+### v1 promise (still true)
 
 A human or AI reviewer, using the supported CLI, can turn an English economic
 claim into a kernel-checked Lean statement with an auditable verification
 bundle and replayable trace, against a pinned Lean/Mathlib workspace and a
-versioned LeanEcon Core, with models used only as optional drafting aids.
+versioned LeanEcon Core, with models used as drafting aids.
 
-### Explicit non-claims (v1)
+### v2 promise (Phoenix)
 
-- No autonomous formalization (models are drafting aids; formalizer is not statement-faithful)
-- No B2 bounded proof loop / auto-prove
-- No multi-agent orchestration, retrieval corpus, or production VERIFIED SLA
+The v1 workflow, plus measured AI-reviewer exercise and audit-gated assist
+*libraries* (bounded revision loop, proof-skeleton contract). Interpretation
+(`mistral-medium-3-5`) and formalization (`labs-leanstral-1-5`) run live;
+`--from-file` is reviewer recovery when the formalizer is not
+statement-faithful. The 60–70% “model drafts the first stretch” target is
+the **v3 measurement goal**, not a result this tag claims.
+
+### Explicit non-claims (v2)
+
+- No autonomous / unattended `VERIFIED`; no production SLA
+- Formalizer is not statement-faithful (live first-try valid 0/3 on v2p1)
+- Revision loop and skeleton are library modules, not CLI surface
+- No B2 auto-prove; no agents, retrieval corpus, or game-theory Core
+- No graphs / embeddings / LaTeX ingest (v3 substrate)
 - No broad economics library (thin Core: micro/consumer + CE/FWT spine)
+- No path that bypasses the reviewer or the kernel axiom audit
 
 ## MVP sequence
 
 - **A1 — Diagnostics**: health-first foundation. ✅
 - **A3 — Verified workflow**: claim → interpretation → review → formal → Lean
   verification → auditable bundle and trace. ✅ (v1 surface)
-- **B2 — Bounded proof**: automated proof search with hard budgets. ❌ post-v1
+- **B2 — Bounded proof**: automated proof search with hard budgets. ❌ spike only (`spikes/001-bounded-search/`; compile≠pass)
 
 ## Relationship to v3
 
@@ -72,6 +84,7 @@ versioned LeanEcon Core, with models used only as optional drafting aids.
 | **v0.2** reviewer recovery + AI reviewer + ops | ✅ shipped |
 | **v0.3** eval skeleton | ✅ shipped |
 | **v1.0.0** supported verified workflow | ✅ shipped |
+| **v2.0.0 Phoenix** assist foundation | ✅ shipped — AI reviewer exercised; `revise_loop` + `skeleton` libraries; B2 spike tracked |
 
 Evidence packets: `docs/releases/`. Decision log: `docs/gate3/DECISION_LOG.md`.
 
