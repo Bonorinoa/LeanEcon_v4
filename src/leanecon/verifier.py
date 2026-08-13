@@ -135,6 +135,38 @@ def _strip_lean_comments(source: str) -> str:
     return "\n".join(out)
 
 
+_THEOREM_RE = re.compile(r"^(?P<prefix>(?:noncomputable\s+|private\s+|protected\s+|@\[[^\]]*\]\s+)*)theorem\s+(?P<name>[^\s:(]+)(?P<sig>.*)$", re.DOTALL)
+
+_IMPORT_RE = re.compile(r"^import\s+\S+.*$", re.MULTILINE)
+
+
+def _axiom_wrap_signature(statement_text: str) -> str:
+    """Operationalize 'signature compiles' for the signature-only contract.
+
+    Lean requires a body after a ``theorem`` conclusion, so a bare signature
+    can never pass ``lake env lean`` — the probe as specified in METRICS §3.1
+    was structurally unreachable for signature-only output (live evidence
+    2026-08-13: v3h-A/B/D all failed with "expected ':='"). Rewriting the
+    declaration as ``axiom`` measures what was intended: does the SIGNATURE
+    elaborate? The kernel axiom audit at verify is untouched (the probe is
+    a signal, D2); the reviewer proof still passes the real theorem.
+    Statements that already carry a body are left untouched (fallback).
+    Leading ``import`` lines are preserved and reattached so Core-importing
+    statements wrap correctly.
+    """
+    if ":=" in statement_text or "sorry" in statement_text.lower():
+        return statement_text
+    imports = _IMPORT_RE.findall(statement_text)
+    body = _IMPORT_RE.sub("", statement_text)
+    m = _THEOREM_RE.match(body.strip())
+    if m is None:
+        return statement_text
+    wrapped = f"{m.group('prefix')}axiom {m.group('name')}{m.group('sig')}"
+    if imports:
+        return "\n".join(imports) + "\n" + wrapped
+    return wrapped
+
+
 def probe_statement_compiles(workspace_root: Path, statement_text: str, timeout_s: int = 180) -> dict:
     """Compile the formalizer's statement in the pinned workspace (evaluation signal).
 
@@ -147,9 +179,10 @@ def probe_statement_compiles(workspace_root: Path, statement_text: str, timeout_
     probe_dir = workspace_root / ".a3-candidates" / "probe"
     probe_dir.mkdir(parents=True, exist_ok=True)
     source_path = probe_dir / f"probe_{int(time.time())}.lean"
-    if not any(line.strip().startswith("import") for line in statement_text.splitlines()):
-        statement_text = "import Mathlib\nimport Mathlib.Tactic\n" + statement_text
-    source_path.write_text(statement_text, encoding="utf-8")
+    probe_text = _axiom_wrap_signature(statement_text)
+    if not any(line.strip().startswith("import") for line in probe_text.splitlines()):
+        probe_text = "import Mathlib\nimport Mathlib.Tactic\n" + probe_text
+    source_path.write_text(probe_text, encoding="utf-8")
     exit_code, stdout, stderr, _ = run_lake_env_lean(workspace_root, source_path, timeout_s)
     tail_src = "\n".join(part for part in (stderr or "", stdout or "") if part).strip()
     return {

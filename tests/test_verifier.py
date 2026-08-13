@@ -194,6 +194,33 @@ def test_probe_stderr_tail_includes_stdout_when_stderr_empty(monkeypatch, tmp_pa
     assert "unknown identifier Foo" in result["stderr_tail"]
 
 
+def test_axiom_wrap_transforms_signature():
+    """Signature-only output is the contract; Lean forbids a body-less theorem,
+    so the probe rewrites `theorem` to `axiom` to measure whether the SIGNATURE
+    elaborates (METRICS draft_complete operationalization)."""
+    wrapped = verifier._axiom_wrap_signature("theorem t (p : ℝ) : p ≤ p")
+    assert wrapped.startswith("axiom t (p : ℝ) : p ≤ p")
+    # multi-declaration / body-carrying statements are left untouched (fallback)
+    assert verifier._axiom_wrap_signature("theorem t : True := by trivial") == "theorem t : True := by trivial"
+
+
+def test_axiom_wrap_keeps_import_lines():
+    stmt = "import LeanEcon.Core.Equilibrium\n\ntheorem t (p : ℝ) : p ≤ p"
+    wrapped = verifier._axiom_wrap_signature(stmt)
+    assert wrapped.startswith("import LeanEcon.Core.Equilibrium")
+    assert "axiom t (p : ℝ) : p ≤ p" in wrapped
+
+
+@requires_workspace
+def test_axiom_wrap_probe_compiles_bare_signature(elan_on_path):
+    """The bare signature that previously never compiled (expected ':=') now
+    elaborates as an axiom; a genuinely ill-typed signature still fails."""
+    ok = verifier.probe_statement_compiles(WORKSPACE, "theorem budget_weak (p p' : ℝ) : p ≤ p' → p ≤ p'")
+    assert ok["compiles"] is True
+    bad = verifier.probe_statement_compiles(WORKSPACE, "theorem t {α : Type} [Set α] : True")
+    assert bad["compiles"] is False
+
+
 def test_lake_missing_is_blocked(tmp_path, monkeypatch):
     (tmp_path / "lean-toolchain").write_text("leanprover/lean4:v4.32.2\n")
     (tmp_path / "lakefile.lean").write_text('import Lake\nrequire "leanprover-community" / "mathlib" @ git "v4.32.2"\n')
