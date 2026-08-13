@@ -1,12 +1,13 @@
 # INIT_V2 — LeanEcon v1→v2 Plan
 
-**Status:** APPROVED 2026-08-08 (CTO, "Approve as proposed"). Phases 1–2
-SHIPPED; Phase 3 contract slice merged (PR #16); Phase 4 in progress.
-**Date:** 2026-08-08 (approved); status updated 2026-08-09
-**Repo state:** main @ `18beaa9` (post-PR #15), tags v0.2.0/v0.3.0/v1.0.0, pytest 176 green
+**Status:** APPROVED 2026-08-08 (CTO, "Approve as proposed"). Phases 1–3
+contract SHIPPED as **v2.0.0 Phoenix** (item 40). Phase 3 measurement
+deferred to v3. Auto-formalize direction recorded, not claimed as met.
+**Date:** 2026-08-08 (approved); status updated 2026-08-12
+**Repo state:** Phoenix ship on `v2/phase3-skeleton`; tags v0.2.0/v0.3.0/v1.0.0
+pending `v2.0.0`; pytest 176 green
 **Scope:** Approved v1→v2 plan. Phase 1 zero-code; Phases 2–3 additive to
-the v1 surface; Phase 4 release (tag only after CTO approval of the
-release packet).
+the v1 surface; Phase 4 = this Phoenix tag.
 
 ---
 
