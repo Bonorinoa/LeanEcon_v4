@@ -22,6 +22,13 @@ jobs:
       - name: Run acceptance tests
         run: python -m pytest -v
 
+      - name: Score committed formalizer fixtures (no provider)
+        run: |
+          python scripts/eval_formalizer.py \
+            --fixtures tests/fixtures/eval/formalizer \
+            --json-out /tmp/eval-formalizer.json
+          python -c "import json; r=json.load(open('/tmp/eval-formalizer.json')); assert r['provider_calls']==0, r; print('fixture scorer OK n=', r['n'])"
+
       - name: Assert runners import cleanly (no workspace required)
         run: |
           python -c "import leanecon.a1_runner; print('a1 runner import OK')"

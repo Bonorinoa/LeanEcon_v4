@@ -1,6 +1,8 @@
 # v3 metrics — what we measure, what we don’t
 
-**Status:** PROPOSED companion to `docs/v3/INIT_V3.md`. Not approved.
+**Status:** Phase 0 approved. Phase 1 implemented (live 1/3 first-try).
+Phase 2 scorer exists on this branch (`leanecon.eval_formalizer`).
+Hand-edited numbers after this file’s scorer exists are a bug.
 **Question this answers:** are the current evals objective measures of
 system quality?
 

@@ -1,0 +1,33 @@
+{
+  "claim_id": "fx-exhausted",
+  "state": "FAILED",
+  "artifact_written": false,
+  "revision_attempts": 3,
+  "revision_history": [
+    {
+      "draft": "theorem t : True := by sorry",
+      "static_problems": ["statement contains 'sorry' (contract violation)"],
+      "probe_compiles": null,
+      "probe_stderr": ""
+    },
+    {
+      "draft": "theorem t : True := by sorry",
+      "static_problems": ["statement contains 'sorry' (contract violation)"],
+      "probe_compiles": null,
+      "probe_stderr": ""
+    },
+    {
+      "draft": "theorem t : True := by sorry",
+      "static_problems": ["statement contains 'sorry' (contract violation)"],
+      "probe_compiles": null,
+      "probe_stderr": ""
+    }
+  ],
+  "statement_text": null,
+  "statement_probe": null,
+  "vacuity_warning": null,
+  "mapping_report": null,
+  "provenance": {"capability": "formalize", "model": "labs-leanstral-1-5", "source": "live"},
+  "verified": false,
+  "proof_provenance": null
+}

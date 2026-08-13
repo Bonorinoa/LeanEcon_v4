@@ -1,0 +1,26 @@
+{
+  "claim_id": "fx-reviewer-verified",
+  "state": "VERIFIED",
+  "artifact_written": true,
+  "revision_attempts": 1,
+  "revision_history": [
+    {
+      "draft": "theorem t : True",
+      "static_problems": [],
+      "probe_compiles": true,
+      "probe_stderr": ""
+    }
+  ],
+  "statement_text": "theorem t : True",
+  "statement_probe": {"compiles": true, "exit_code": 0, "stderr_tail": ""},
+  "vacuity_warning": null,
+  "mapping_report": [],
+  "provenance": {
+    "capability": "formalize",
+    "source": "from_file",
+    "reviewer_authored_formal": true,
+    "model": null
+  },
+  "verified": true,
+  "proof_provenance": "reviewer"
+}

@@ -145,3 +145,14 @@ and must be resolved before any release-labeled work.
   artifact (`:=`+D1); C FORMALIZED attempts=2 (attempt 1 `:=` then
   clean) probe-fail 10 gaps. first_try_valid **1/3**. Sole-author **0%**.
   60–70% not claimed. v2p1-* still VERIFIED.
+
+## 2026-08-13 — v3 Phase 2 (scorer; unreleased)
+
+- `src/leanecon/eval_formalizer.py` + `scripts/eval_formalizer.py`.
+  Deterministic fixture scorer, **0 provider calls**.
+- Fixtures: `tests/fixtures/eval/formalizer/` (7 cases: first-try,
+  attempt-2, exhausted, B2 sorry+exit0, D1, vacuity, reviewer-VERIFIED).
+- 9 reds → green. Full suite **189**.
+- Split doc: `docs/eval/v3-claim-split.md`. Held-out texts **not**
+  ingested (await CTO). 60–70% still illegal.
+- CI: `a1.yml` runs the fixture scorer and asserts `provider_calls==0`.

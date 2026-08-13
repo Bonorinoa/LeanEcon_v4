@@ -1,0 +1,21 @@
+{
+  "claim_id": "fx-vacuous",
+  "state": "FORMALIZED",
+  "artifact_written": true,
+  "revision_attempts": 1,
+  "revision_history": [
+    {
+      "draft": "theorem t (h : P) : P",
+      "static_problems": [],
+      "probe_compiles": true,
+      "probe_stderr": ""
+    }
+  ],
+  "statement_text": "theorem t (h : P) : P",
+  "statement_probe": {"compiles": true, "exit_code": 0, "stderr_tail": ""},
+  "vacuity_warning": "conclusion restates a hypothesis (potential vacuity): 'P'",
+  "mapping_report": [],
+  "provenance": {"capability": "formalize", "model": "labs-leanstral-1-5", "source": "live"},
+  "verified": false,
+  "proof_provenance": null
+}

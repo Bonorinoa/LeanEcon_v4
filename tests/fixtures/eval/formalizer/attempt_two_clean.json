@@ -1,0 +1,27 @@
+{
+  "claim_id": "fx-attempt-2",
+  "state": "FORMALIZED",
+  "artifact_written": true,
+  "revision_attempts": 2,
+  "revision_history": [
+    {
+      "draft": "theorem t : True := by sorry",
+      "static_problems": ["statement contains 'sorry' (contract violation)"],
+      "probe_compiles": null,
+      "probe_stderr": ""
+    },
+    {
+      "draft": "theorem t : True",
+      "static_problems": [],
+      "probe_compiles": true,
+      "probe_stderr": ""
+    }
+  ],
+  "statement_text": "theorem t : True",
+  "statement_probe": {"compiles": true, "exit_code": 0, "stderr_tail": ""},
+  "vacuity_warning": null,
+  "mapping_report": [],
+  "provenance": {"capability": "formalize", "model": "labs-leanstral-1-5", "source": "live"},
+  "verified": false,
+  "proof_provenance": null
+}
