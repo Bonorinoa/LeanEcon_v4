@@ -128,3 +128,20 @@ and must be resolved before any release-labeled work.
   `leanecon-a3-2.0.0`. B2 spike tracked. 60–70% draft target recorded as
   the v3 measurement goal; auto-formalize of NL/LaTeX → IR is the v3
   *direction*, not an abandoned promise.
+
+## 2026-08-13 — v3 Phase 1 (wire the loop; unreleased)
+
+- Stage 0 packet approved as proposed (INIT_V3 D1–D5).
+- TDD: 4 reds in `tests/test_formalize_revise_loop.py` failed on
+  single-shot `formalize_claim` (1 request; attempt-2 never happened).
+- Green: live `formalize_claim` calls `revise_statement_draft`.
+  Audit-clean → FORMALIZED (probe is a signal, D2). Exhausted budget →
+  FAILED, no artifact (D3). `PROVIDER_UNAVAILABLE` → BLOCKED (D5).
+  `--from-file` unchanged. No new CLI, no `TRANSITIONS` change.
+- pytest **180** green (176 + 4).
+- Predictions written first: `artifacts/local/v3-p1-expectations.md`.
+  Preflight HTTP 200. Live same-text set (CTO approved after `.env` gate):
+  A FORMALIZED attempts=1 probe-fail 4 gaps; B FAILED attempts=3 no
+  artifact (`:=`+D1); C FORMALIZED attempts=2 (attempt 1 `:=` then
+  clean) probe-fail 10 gaps. first_try_valid **1/3**. Sole-author **0%**.
+  60–70% not claimed. v2p1-* still VERIFIED.

@@ -58,6 +58,27 @@ Edit-distance / time-to-VERIFIED measurement on v2p1 proofs DEFERRED —
 no measurement rows yet; contract only. Not a v2 claim of 60–70% draft
 completion.
 
+## v3 Phase 1 (2026-08-13 — loop wired + live same-text set)
+
+`a3_runner.formalize_claim` calls `revise_statement_draft`
+(`MAX_REVISION_ATTEMPTS=3`). Unit suite **180**. Live set: v3p1-A/B/C
+(same text as v2p1-A/B/C; new ids; D4).
+
+| Claim | Attempts | Outcome | Probe | Notes |
+|---|---|---|---|---|
+| v3p1-A | 1 | FORMALIZED | fail | audit-clean first try; 4 mapping gaps; `walrasian_demand_exhausts_budget` |
+| v3p1-B | 3 | FAILED, no artifact | n/a | `:=` body + D1 (core rows used Lean types, not FQ Core ids) |
+| v3p1-C | 2 | FORMALIZED | fail | attempt 1 `:=` caught; attempt 2 signature-only; 10 mapping gaps |
+
+| Metric (v3p1 set) | Observation |
+|---|---|
+| Statement-valid first try (audit-clean) | **1/3** (A). Not 60–70%. Probe still fail on both FORMALIZED. |
+| attempts_to_valid | A=1, B=`null`, C=2 |
+| Budget / no 4th | held (B exhausted at 3) |
+| Contamination / `:=` still fails | held (B no artifact; C attempt 1 rejected then cleaned) |
+| Suitable as sole author of VERIFIED | **0%** — no model proof verified; `--from-file` still recovery |
+| 60–70% draft-complete | **not claimed** |
+
 ## Tooling that remains load-bearing
 
 `validate_statement_text`, `validate_scaffolding_namespace`, D1 FQ check,

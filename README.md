@@ -36,17 +36,18 @@ versioned LeanEcon Core, with models used as drafting aids.
 ### v2 promise (Phoenix)
 
 The v1 workflow, plus measured AI-reviewer exercise and audit-gated assist
-*libraries* (bounded revision loop, proof-skeleton contract). Interpretation
-(`mistral-medium-3-5`) and formalization (`labs-leanstral-1-5`) run live;
-`--from-file` is reviewer recovery when the formalizer is not
+libraries. Live `formalize` now runs the bounded revision loop
+(`leanecon.revise_loop`, budget 3); `skeleton` remains library-only.
+Interpretation (`mistral-medium-3-5`) and formalization (`labs-leanstral-1-5`)
+run live; `--from-file` is reviewer recovery when the formalizer is not
 statement-faithful. The 60–70% “model drafts the first stretch” target is
-the **v3 measurement goal**, not a result this tag claims.
+the **v3 measurement goal**, not a result this tree claims.
 
 ### Explicit non-claims (v2)
 
 - No autonomous / unattended `VERIFIED`; no production SLA
 - Formalizer is not statement-faithful (live first-try valid 0/3 on v2p1)
-- Revision loop and skeleton are library modules, not CLI surface
+- `revise_loop` is on the live `formalize` path (no new CLI); `skeleton` is still library-only
 - No B2 auto-prove; no agents, retrieval corpus, or game-theory Core
 - No graphs / embeddings / LaTeX ingest (v3 substrate)
 - No broad economics library (thin Core: micro/consumer + CE/FWT spine)
@@ -85,6 +86,7 @@ the **v3 measurement goal**, not a result this tag claims.
 | **v0.3** eval skeleton | ✅ shipped |
 | **v1.0.0** supported verified workflow | ✅ shipped |
 | **v2.0.0 Phoenix** assist foundation | ✅ shipped — AI reviewer exercised; `revise_loop` + `skeleton` libraries; B2 spike tracked |
+| **v3 Phase 1** (unreleased) | live `formalize` calls `revise_loop` (this worktree; not tagged) |
 
 Evidence packets: `docs/releases/`. Decision log: `docs/gate3/DECISION_LOG.md`.
 

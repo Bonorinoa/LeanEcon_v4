@@ -72,6 +72,7 @@ from leanecon.lifecycle import TERMINAL_STATES
 from leanecon.providers import Capability, ProviderAdapter, ProviderFailure
 from leanecon.repopath import find_repo_root
 from leanecon.reviewer_policy import resolve_reviewer
+from leanecon.revise_loop import Feedback, revise_statement_draft
 from leanecon.trace_replay import replay_claim, replay_run
 from leanecon.verifier import (
     REASON_SORRY_FOUND,
@@ -394,68 +395,154 @@ def cmd_review(args, store: ArtifactStore) -> int:
 # ---------------------------------------------------------------------------
 
 
+class _ProviderUnavailable(Exception):
+    """Break out of revise_loop when the provider is down (INIT_V3 D5)."""
+
+    def __init__(self, failure: ProviderFailure):
+        super().__init__(failure.message)
+        self.failure = failure
+
+
+def _feedback_as_dict(item: Feedback) -> dict:
+    return {
+        "draft": item.draft,
+        "static_problems": list(item.static_problems),
+        "probe_compiles": item.probe_compiles,
+        "probe_stderr": item.probe_stderr,
+    }
+
+
+def _revision_feedback_block(history: list[Feedback]) -> str:
+    """Verbatim prior Feedback for the next formalize prompt."""
+    lines = [
+        "Prior kernel/static feedback from earlier attempts in this formalize call.",
+        "Revise the statement. Do not repeat the same contract violations.",
+        "",
+    ]
+    for index, item in enumerate(history, start=1):
+        lines.append(f"Attempt {index}:")
+        lines.append(f"  draft: {item.draft}")
+        if item.static_problems:
+            lines.append("  static_problems:")
+            for problem in item.static_problems:
+                lines.append(f"    - {problem}")
+        if item.probe_stderr:
+            lines.append(f"  probe_stderr: {item.probe_stderr}")
+        lines.append("")
+    return "\n".join(lines)
+
+
 def formalize_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run_id: str, adapter: ProviderAdapter, workspace_root: Path) -> tuple[str, Optional[dict]]:
+    """Live formalize: bounded revise_loop, then existing store/lifecycle.
+
+    INIT_V3 D2: retry only while ``audit`` fails. An audit-clean statement is
+    FORMALIZED even if the compile probe fails. ``revise_loop.accepted``
+    (audit ∧ real probe) is not the FORMALIZED predicate — the loop probe
+    is a dummy so the harness exits on first audit-clean draft.
+    D5: PROVIDER_UNAVAILABLE → BLOCKED immediately (not an attempt).
+    """
     ei = store.read_ei(claim.claim_id, claim.accepted_ei_rev)
+    stash: dict[str, Any] = {"parsed": None, "response": None, "parse_error": None}
+
+    def draft_fn(history: list[Feedback]) -> str:
+        prompt = formalize_prompt(ei)
+        if history:
+            prompt = f"{prompt}\n\n{_revision_feedback_block(history)}"
+        try:
+            response = adapter.request(
+                capability=Capability.FORMALIZE,
+                model=MVP_MODEL_MAP[Capability.FORMALIZE].model,
+                typed_payload={"prompt": prompt},
+                declared_class=claim.data_class,
+                run_id=run_id,
+                claim_id=claim.claim_id,
+            )
+        except ProviderFailure as failure:
+            if failure.kind.value == "PROVIDER_UNAVAILABLE":
+                raise _ProviderUnavailable(failure) from failure
+            stash["parsed"] = None
+            stash["response"] = None
+            stash["parse_error"] = failure.message
+            return ""
+        try:
+            parsed = parse_formalize_response((response.output or {}).get("content", ""))
+        except ValueError as exc:
+            stash["parsed"] = None
+            stash["response"] = response
+            stash["parse_error"] = str(exc)
+            return (response.output or {}).get("content", "") or ""
+        stash["parsed"] = parsed
+        stash["response"] = response
+        stash["parse_error"] = None
+        return parsed["statement"]
+
+    def audit(stmt: str) -> list[str]:
+        if stash["parsed"] is None:
+            return [stash["parse_error"] or "formalize response could not be parsed"]
+        problems: list[str] = []
+        problems.extend(validate_statement_text(stmt))
+        problems.extend(validate_scaffolding_namespace(stmt))
+        mapping_problems, _gaps = validate_mapping_report(stash["parsed"]["mapping_report"], ei)
+        problems.extend(mapping_problems)
+        return problems
+
+    # Dummy probe: D2 — do not spend budget on compile-fail retries.
+    def loop_probe(_stmt: str) -> tuple[bool, str]:
+        return True, ""
+
     try:
-        response = adapter.request(
-            capability=Capability.FORMALIZE,
-            model=MVP_MODEL_MAP[Capability.FORMALIZE].model,
-            typed_payload={"prompt": formalize_prompt(ei)},
-            declared_class=claim.data_class,
-            run_id=run_id,
-            claim_id=claim.claim_id,
-        )
-    except ProviderFailure as failure:
-        if failure.kind.value == "PROVIDER_UNAVAILABLE":
-            _state_event(log, run_id, claim.claim_id, claim.state, "BLOCKED", "system", "a3-formalize",
-                         reason_codes=(failure.reason_code,), detail={"error": failure.message})
-            return "BLOCKED", None
-        _state_event(log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
+        outcome = revise_statement_draft(draft_fn, audit, loop_probe)
+    except _ProviderUnavailable as exc:
+        failure = exc.failure
+        _state_event(log, run_id, claim.claim_id, claim.state, "BLOCKED", "system", "a3-formalize",
                      reason_codes=(failure.reason_code,), detail={"error": failure.message})
-        return "FAILED", None
+        return "BLOCKED", None
 
-    try:
-        parsed = parse_formalize_response((response.output or {}).get("content", ""))
-    except ValueError as exc:
+    history_payload = [_feedback_as_dict(item) for item in outcome.revision_history]
+    parsed = stash["parsed"]
+    response = stash["response"]
+
+    if not outcome.accepted or parsed is None:
+        last_problems: list[str] = []
+        if outcome.revision_history:
+            last_problems = list(outcome.revision_history[-1].static_problems)
+        elif stash["parse_error"]:
+            last_problems = [stash["parse_error"]]
+        detail: dict[str, Any] = {
+            "attempts_used": outcome.attempts_used,
+            "revision_history": history_payload,
+        }
+        if last_problems:
+            # Keep the v1 keys so existing static-reject tests still see them.
+            if any("scaffolding" in p or "root-namespace" in p for p in last_problems):
+                detail["scaffolding_problems"] = last_problems[:5]
+            elif any("mapping" in p or "core mapping" in p for p in last_problems):
+                detail["mapping_problems"] = last_problems[:5]
+            elif stash["parsed"] is None and stash["parse_error"]:
+                detail["error"] = stash["parse_error"]
+            else:
+                detail["statement_problems"] = last_problems[:5]
         _state_event(log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
-                     reason_codes=("PROVIDER_INVALID_OUTPUT",), detail={"error": str(exc)})
+                     reason_codes=("PROVIDER_INVALID_OUTPUT",), detail=detail)
         return "FAILED", None
 
-    # Static statement contract (walkthrough hardening): sorry/admit and
-    # attached proof bodies are hard rejections — the candidate never reaches
-    # the store, and the failure is visible in the trace.
-    statement_problems = validate_statement_text(parsed["statement"])
-    if statement_problems:
+    # Audit-clean within budget → FORMALIZED. Probe is a signal (D2).
+    gaps_problems, gaps = validate_mapping_report(parsed["mapping_report"], ei)
+    if gaps_problems:
+        # Defensive: audit already ran mapping; this should be empty.
         _state_event(log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
                      reason_codes=("PROVIDER_INVALID_OUTPUT",),
-                     detail={"statement_problems": statement_problems[:5]})
+                     detail={"mapping_problems": gaps_problems[:5],
+                             "attempts_used": outcome.attempts_used,
+                             "revision_history": history_payload})
         return "FAILED", None
-
-    # D4 (a3-core-design.md §4): A3-local scaffolding must be namespace-scoped.
-    # A root-namespace declaration in the candidate is a prompt violation of
-    # the same class as a proof body — rejected before the store.
-    scaffolding_problems = validate_scaffolding_namespace(parsed["statement"])
-    if scaffolding_problems:
-        _state_event(log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
-                     reason_codes=("PROVIDER_INVALID_OUTPUT",),
-                     detail={"scaffolding_problems": scaffolding_problems[:5]})
-        return "FAILED", None
-
-    problems, gaps = validate_mapping_report(parsed["mapping_report"], ei)
-    if problems:
-        _state_event(log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
-                     reason_codes=("PROVIDER_INVALID_OUTPUT",), detail={"mapping_problems": problems[:5]})
-        return "FAILED", None
-
-    # Classify gaps (id-scheme deviation vs genuinely missing) and probe the
-    # statement in the pinned workspace — both are evaluation signals for the
-    # reviewer, recorded in the formal artifact.
     gaps = classify_gaps(gaps, parsed["mapping_report"])
     probe = probe_statement_compiles(workspace_root, parsed["statement"])
     vacuity = vacuity_warning(parsed["statement"])
-
     imports = [line.split("import", 1)[1].strip() for line in parsed["statement"].splitlines()
                if line.strip().startswith("import")]
+    model = response.metadata.model if response is not None else None
+    request_id = response.metadata.request_id if response is not None else None
     candidate = {
         "statement_text": parsed["statement"],
         "target_theorem": parsed["target_theorem"],
@@ -465,15 +552,15 @@ def formalize_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run
         "gaps": gaps,
         "statement_probe": probe,
         "vacuity_warning": vacuity,
-        "provenance": {"capability": "formalize", "model": response.metadata.model, "request_id": response.metadata.request_id},
+        "revision_attempts": outcome.attempts_used,
+        "revision_history": history_payload,
+        "provenance": {"capability": "formalize", "model": model, "request_id": request_id},
     }
     artifact = store.write_formal(claim.claim_id, candidate, status="current")
-    # The claim DID transition to FORMALIZED (candidate + mapping report exist)
-    # even when gaps are present — the state event must be emitted either way
-    # or the trace chain becomes inconsistent with the persisted state.
     _state_event(log, run_id, claim.claim_id, claim.state, "FORMALIZED", "system", "a3-formalize",
                  detail={"formal_rev": artifact["revision"], "target_theorem": parsed["target_theorem"],
-                         "gap_count": len(gaps), "statement_compiles": probe.get("compiles")})
+                         "gap_count": len(gaps), "statement_compiles": probe.get("compiles"),
+                         "revision_attempts": outcome.attempts_used})
     if gaps:
         _emit(log, Event(
             event_type=EVENT_DIAGNOSTIC_RESULT,
@@ -486,7 +573,7 @@ def formalize_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run
             detail={"event": "mapping_gaps", "gap_count": len(gaps),
                     "gaps": [g["ei_element_id"] for g in gaps]},
         ))
-        return "FORMALIZED", candidate  # stays FORMALIZED; PROVING blocked until gap-ack
+        return "FORMALIZED", candidate
 
     return "FORMALIZED", candidate
 
