@@ -37,7 +37,8 @@ versioned LeanEcon Core, with models used as drafting aids.
 
 The v1 workflow, plus measured AI-reviewer exercise and audit-gated assist
 libraries. Live `formalize` now runs the bounded revision loop
-(`leanecon.revise_loop`, budget 3); `skeleton` remains library-only.
+(`leanecon.revise_loop`, budget 3). `skeleton` is a drafting CLI
+(`a3 skeleton`); unresolved gaps cannot reach `verify`.
 Interpretation (`mistral-medium-3-5`) and formalization (`labs-leanstral-1-5`)
 run live; `--from-file` is reviewer recovery when the formalizer is not
 statement-faithful. The 60–70% “model drafts the first stretch” target is
