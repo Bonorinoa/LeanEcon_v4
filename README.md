@@ -47,7 +47,8 @@ the **v3 measurement goal**, not a result this tree claims.
 
 - No autonomous / unattended `VERIFIED`; no production SLA
 - Formalizer is not statement-faithful (live first-try valid 0/3 on v2p1)
-- `revise_loop` is on the live `formalize` path (no new CLI); `skeleton` is still library-only
+- `revise_loop` is on the live `formalize` path; `skeleton` is a
+  drafting CLI (`a3 skeleton`) that cannot reach `verify` with gaps
 - No B2 auto-prove; no agents, retrieval corpus, or game-theory Core
 - No graphs / embeddings / LaTeX ingest (v3 substrate)
 - No broad economics library (thin Core: micro/consumer + CE/FWT spine)

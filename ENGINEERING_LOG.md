@@ -156,3 +156,10 @@ and must be resolved before any release-labeled work.
 - Split doc: `docs/eval/v3-claim-split.md`. Held-out texts **not**
   ingested (await CTO). 60–70% still illegal.
 - CI: `a1.yml` runs the fixture scorer and asserts `provider_calls==0`.
+
+## 2026-08-13 — v3 Phase 3 (skeleton CLI; unreleased)
+
+- First additive CLI: `skeleton --claim-id --file`.
+- Unresolved gaps block `verify`. Claim state unchanged.
+- Suite **194**. Live edit-distance on v3p1 **halted** (no model
+  skeleton). See `docs/eval/skeleton-measurement.md`.

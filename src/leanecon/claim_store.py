@@ -163,6 +163,30 @@ class ArtifactStore:
                 artifact["superseded_at"] = _now()
                 self.write_json(self._formal_dir(claim_id) / f"rev-{rev}.json", artifact)
 
+    # -- proof-skeleton revisions (v3 Phase 3 drafting artifact) --------
+    def _skeleton_dir(self, claim_id: str) -> Path:
+        return self.root / "skeletons" / claim_id
+
+    def skeleton_revs(self, claim_id: str) -> list[int]:
+        d = self._skeleton_dir(claim_id)
+        if not d.exists():
+            return []
+        return sorted(int(p.stem.split("-")[1]) for p in d.glob("rev-*.json"))
+
+    def write_skeleton(self, claim_id: str, payload: dict) -> dict:
+        rev = (self.skeleton_revs(claim_id) or [0])[-1] + 1
+        body = dict(payload)
+        body["revision"] = rev
+        body["claim_id"] = claim_id
+        body["stored_at"] = _now()
+        return self.write_json(self._skeleton_dir(claim_id) / f"rev-{rev}.json", body)
+
+    def read_skeleton(self, claim_id: str, rev: int | None = None) -> dict:
+        revs = self.skeleton_revs(claim_id)
+        if not revs:
+            raise FileNotFoundError(f"no skeleton for {claim_id}")
+        return self.read_json(self._skeleton_dir(claim_id) / f"rev-{(rev or revs[-1])}.json")
+
     # -- review records -------------------------------------------------
     def _review_dir(self, claim_id: str) -> Path:
         return self.root / "reviews" / claim_id

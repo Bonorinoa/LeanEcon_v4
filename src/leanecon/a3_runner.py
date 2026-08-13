@@ -8,6 +8,7 @@ Subcommands (the CTO-facing surface):
   interpret     run interpretation (live) -> INTERPRETED -> REVIEW_REQUIRED
   review        reviewer decision: approve | reject  (ACCEPTED | REJECTED)
   formalize     live formalization OR ``--from-file`` reviewer candidate
+  skeleton      store a proof-skeleton draft (unresolved gaps block verify)
   gap-ack       reviewer acknowledges mapping gaps (enables PROVING)
   axiom-approve reviewer approves the axiom list (per-run reviewer record)
   verify        proof input -> PROVING -> VERIFIED | FAILED | BLOCKED + bundle
@@ -73,6 +74,7 @@ from leanecon.providers import Capability, ProviderAdapter, ProviderFailure
 from leanecon.repopath import find_repo_root
 from leanecon.reviewer_policy import resolve_reviewer
 from leanecon.revise_loop import Feedback, revise_statement_draft
+from leanecon.skeleton import validate_skeleton
 from leanecon.trace_replay import replay_claim, replay_run
 from leanecon.verifier import (
     REASON_SORRY_FOUND,
@@ -854,6 +856,35 @@ def cmd_axiom_approve(args, store: ArtifactStore) -> int:
 
 
 # ---------------------------------------------------------------------------
+# skeleton (v3 Phase 3 drafting assist)
+# ---------------------------------------------------------------------------
+
+
+def cmd_skeleton(args, store: ArtifactStore) -> int:
+    """Store a drafting skeleton. Does not change claim state. Unresolved gaps block verify."""
+    claim = store.load_claim(args.claim_id)
+    path = Path(args.file)
+    if not path.exists():
+        raise SystemExit(f"skeleton file not found: {path}")
+    text = path.read_text(encoding="utf-8")
+    parsed = validate_skeleton(text)
+    store.write_skeleton(claim.claim_id, {
+        "text": text,
+        "has_unresolved_gaps": parsed.has_unresolved_gaps,
+        "problems": list(parsed.problems),
+        "gap_names": [s.name for s in parsed.gaps],
+        "provenance": {"source": "skeleton", "path": str(path)},
+    })
+    print(
+        f"claim {claim.claim_id}: skeleton stored (unresolved_gaps="
+        f"{parsed.has_unresolved_gaps}, problems={len(parsed.problems)})"
+    )
+    if parsed.has_unresolved_gaps:
+        print("  verify is refused until gaps are refined or the skeleton is replaced")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # verify
 # ---------------------------------------------------------------------------
 
@@ -868,6 +899,14 @@ def cmd_verify(args, store: ArtifactStore) -> int:
     formal = store.read_formal(claim.claim_id, claim.formal_rev)
     if formal.get("gaps") and not store.list_review_records(claim.claim_id, "gap"):
         raise SystemExit(f"claim {claim.claim_id}: mapping gaps unacknowledged — PROVING refused (run gap-ack first)")
+
+    if store.skeleton_revs(claim.claim_id):
+        skeleton = store.read_skeleton(claim.claim_id)
+        if skeleton.get("has_unresolved_gaps"):
+            raise SystemExit(
+                f"claim {claim.claim_id}: unresolved skeleton gaps — verify refused "
+                "(refine the skeleton or drop it; -- GAP: never reaches the kernel)"
+            )
 
     proof_path = Path(args.proof)
     if not proof_path.exists():
@@ -1045,6 +1084,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--target-theorem", default="",
                    help="override target theorem name (required if statement file has no name)")
     p.set_defaults(func=cmd_formalize)
+
+    p = sub.add_parser("skeleton", help="store a proof-skeleton draft (never sent to verify if gaps remain)")
+    p.add_argument("--claim-id", required=True)
+    p.add_argument("--file", required=True, help="Lean skeleton text (have-chain with -- GAP: notes)")
+    p.set_defaults(func=cmd_skeleton)
 
     p = sub.add_parser("gap-ack", help="reviewer acknowledges mapping gaps (per-run reviewer record)")
     p.add_argument("--claim-id", required=True)
