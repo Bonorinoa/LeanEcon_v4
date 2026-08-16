@@ -9,12 +9,12 @@ name only and never appear in core code or logs.
 from __future__ import annotations
 
 import hashlib
-import time
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any
 
 from leanecon.events import CapabilityStatus
 
@@ -42,7 +42,9 @@ class ProviderFailure(Exception):
     """Typed provider failure. Core code must never see vendor-specific
     exception taxonomies."""
 
-    def __init__(self, kind: ProviderFailureKind, message: str, attempts: int = 1, provider: str = "unknown"):
+    def __init__(
+        self, kind: ProviderFailureKind, message: str, attempts: int = 1, provider: str = "unknown"
+    ):
         super().__init__(message)
         self.kind = kind
         self.message = message
@@ -62,9 +64,9 @@ class ProviderMetadata:
 
     provider: str
     model: str
-    request_id: Optional[str] = None
-    latency_ms: Optional[int] = None
-    token_metadata: Optional[dict] = None
+    request_id: str | None = None
+    latency_ms: int | None = None
+    token_metadata: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -73,7 +75,7 @@ class ProviderResponse:
     status: CapabilityStatus
     output: Any
     metadata: ProviderMetadata
-    degradation_note: Optional[str] = None
+    degradation_note: str | None = None
     trace_ref: str = field(default_factory=lambda: f"req-{uuid.uuid4()}")
 
 
@@ -101,9 +103,9 @@ class ProviderAdapter(ABC):
 
     def __init__(
         self,
-        policy_evaluate: Optional[Callable] = None,
-        emit_event: Optional[Callable] = None,
-        transport: Optional[Callable] = None,
+        policy_evaluate: Callable | None = None,
+        emit_event: Callable | None = None,
+        transport: Callable | None = None,
         max_attempts: int = 2,
         timeout_s: float = 60.0,
     ):
@@ -123,7 +125,7 @@ class ProviderAdapter(ABC):
         typed_payload: dict,
         declared_class: Any,
         run_id: str,
-        claim_id: Optional[str] = None,
+        claim_id: str | None = None,
     ) -> ProviderResponse:
         """Single egress path: policy decision first, then transmission.
 

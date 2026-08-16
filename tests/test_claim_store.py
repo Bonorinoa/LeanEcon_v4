@@ -1,19 +1,19 @@
 """Claim/artifact store tests (docs/gate5/a3-design.md §2)."""
 
-from pathlib import Path
-
 from leanecon.claim_store import (
-    ArtifactStore,
-    ClaimRecord,
     FORMAL_STATUS_CURRENT,
     FORMAL_STATUS_SUPERSEDED,
+    ArtifactStore,
+    ClaimRecord,
     sanitize_module_part,
 )
 from leanecon.data_policy import canonical_digest
 
 
 def _claim(claim_id="c1") -> ClaimRecord:
-    return ClaimRecord(claim_id=claim_id, revision=1, source_text="some claim", data_class="PROJECT")
+    return ClaimRecord(
+        claim_id=claim_id, revision=1, source_text="some claim", data_class="PROJECT"
+    )
 
 
 def test_claim_round_trip(tmp_path):
@@ -40,8 +40,12 @@ def test_supersede_formals_on_ei_change(tmp_path):
     store = ArtifactStore(tmp_path)
     ei1 = store.write_ei("c1", {"claim": {"canonical_text": "x"}}, status="accepted")
     ei2 = store.write_ei("c1", {"claim": {"canonical_text": "z"}}, status="accepted")
-    store.write_formal("c1", {"statement_text": "s1", "interpretation_digest": ei1["digest"]}, status="current")
-    store.write_formal("c1", {"statement_text": "s2", "interpretation_digest": ei2["digest"]}, status="current")
+    store.write_formal(
+        "c1", {"statement_text": "s1", "interpretation_digest": ei1["digest"]}, status="current"
+    )
+    store.write_formal(
+        "c1", {"statement_text": "s2", "interpretation_digest": ei2["digest"]}, status="current"
+    )
     store.supersede_formals_for("c1", ei2["digest"])
     rev1 = store.read_formal("c1", 1)
     rev2 = store.read_formal("c1", 2)

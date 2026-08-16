@@ -11,8 +11,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from leanecon.eval_formalizer import (
     score_case,
     score_fixture_dir,

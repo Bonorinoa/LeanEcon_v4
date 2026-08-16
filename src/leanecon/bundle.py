@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from leanecon.claim_store import ArtifactStore
 from leanecon.data_policy import canonical_digest
@@ -72,7 +72,7 @@ def build_bundle(
     proof_source: str,
     verification: dict,
     approval_record: dict,
-    axiom_record: Optional[dict],
+    axiom_record: dict | None,
     trace_refs: list[str],
     capability_snapshots: dict,
     workspace_root: Path,
@@ -93,10 +93,16 @@ def build_bundle(
         "claim_id": claim.claim_id,
         "claim_revision": claim.revision,
         "claim_digest": canonical_digest(
-            {"claim_id": claim.claim_id, "revision": claim.revision, "source_text": claim.source_text}
+            {
+                "claim_id": claim.claim_id,
+                "revision": claim.revision,
+                "source_text": claim.source_text,
+            }
         ),
         "interpretation_digest": ei_artifact.get("digest"),
-        "formal_statement_digest": canonical_digest({"statement": formal_artifact.get("statement_text", "")}),
+        "formal_statement_digest": canonical_digest(
+            {"statement": formal_artifact.get("statement_text", "")}
+        ),
         "proof_artifact_digest": canonical_digest({"proof": proof_source}),
         "workspace_identity": {
             "toolchain": identity.lean_toolchain,
@@ -128,7 +134,9 @@ def build_bundle(
             "lean_toolchain": identity.lean_toolchain,
         },
         "result": verification.get("outcome"),
-        "failure_reasons": [verification.get("reason_code")] if verification.get("reason_code") else [],
+        "failure_reasons": [verification.get("reason_code")]
+        if verification.get("reason_code")
+        else [],
         "reproducibility": {
             "commands": commands,
             "builder_identity": builder_identity,
@@ -179,7 +187,6 @@ def validate_bundle(store: ArtifactStore, bundle_id: str, claim) -> list[tuple[s
     verification = read("verification.json")
     approval = read("approval_record.json")
     axiom_rec = read("axiom_record.json")
-    proof = read("proof_input.lean")
 
     claim_payload = claim_json if isinstance(claim_json, dict) else {}
     ei_dict = ei if isinstance(ei, dict) else {}
@@ -203,9 +210,17 @@ def validate_bundle(store: ArtifactStore, bundle_id: str, claim) -> list[tuple[s
     ei_ok = ei_ok and ei_dict.get("review", {}).get("decision") == "APPROVED"
     ei_ok = ei_ok and manifest.get("interpretation_digest") == ei_dict.get("digest")
     if not ei_ok:
-        checks.append(("2_accepted_interpretation", False, f"EI status={ei_dict.get('status')} review={ei_dict.get('review')}"))
+        checks.append(
+            (
+                "2_accepted_interpretation",
+                False,
+                f"EI status={ei_dict.get('status')} review={ei_dict.get('review')}",
+            )
+        )
     else:
-        checks.append(("2_accepted_interpretation", True, "immutable accepted EI digest + APPROVED review"))
+        checks.append(
+            ("2_accepted_interpretation", True, "immutable accepted EI digest + APPROVED review")
+        )
 
     # 3 accepted formal statement linked
     formal_ok = bool(formal_dict.get("statement_text"))
@@ -215,11 +230,13 @@ def validate_bundle(store: ArtifactStore, bundle_id: str, claim) -> list[tuple[s
     checks.append(("3_formal_statement", formal_ok, "statement linked + digest matches"))
 
     # 4 kernel check
-    checks.append(("4_kernel_check", bool(ver_dict.get("compile_ok")), "lake env lean accepted the candidate"))
+    checks.append(
+        ("4_kernel_check", bool(ver_dict.get("compile_ok")), "lake env lean accepted the candidate")
+    )
 
     # 5 no incomplete proof (static + kernel)
-    sorry_ok = bool(ver_dict.get("static_sorry_ok")) and not (
-        "sorryAx" in (ver_dict.get("axiom_list") or [])
+    sorry_ok = bool(ver_dict.get("static_sorry_ok")) and "sorryAx" not in (
+        ver_dict.get("axiom_list") or []
     )
     checks.append(("5_no_sorry", sorry_ok, "static scan + sorryAx absent from axiom audit"))
 
@@ -229,18 +246,37 @@ def validate_bundle(store: ArtifactStore, bundle_id: str, claim) -> list[tuple[s
     # A zero-axiom theorem needs no approval record (vacuous); otherwise the
     # per-run reviewer record must cover every used axiom.
     audit_ok = (not used) or (bool(axiom_dict) and used <= approved)
-    checks.append(("6_axiom_audit", audit_ok, f"axioms {sorted(used)} within approved {sorted(approved)}"))
+    checks.append(
+        ("6_axiom_audit", audit_ok, f"axioms {sorted(used)} within approved {sorted(approved)}")
+    )
 
     # 7 pinned workspace identity
     ws = manifest.get("workspace_identity", {})
-    checks.append(("7_pinned_workspace", bool(ws.get("pinned")), "toolchain + mathlib pin recorded"))
+    checks.append(
+        ("7_pinned_workspace", bool(ws.get("pinned")), "toolchain + mathlib pin recorded")
+    )
 
     # 8 content digests present
-    digests = [manifest.get(k) for k in ("claim_digest", "interpretation_digest", "formal_statement_digest", "proof_artifact_digest", "manifest_digest")]
+    digests = [
+        manifest.get(k)
+        for k in (
+            "claim_digest",
+            "interpretation_digest",
+            "formal_statement_digest",
+            "proof_artifact_digest",
+            "manifest_digest",
+        )
+    ]
     checks.append(("8_digests", all(digests), "all five digests present"))
 
     # 9 trace links
-    checks.append(("9_trace_links", bool(manifest.get("trace_refs")) and bool(approval_dict.get("event_ref")), "approval + verification refs present"))
+    checks.append(
+        (
+            "9_trace_links",
+            bool(manifest.get("trace_refs")) and bool(approval_dict.get("event_ref")),
+            "approval + verification refs present",
+        )
+    )
 
     # 10 state-dependent metadata
     meta_ok = bool(manifest.get("capability_snapshots")) and bool(manifest.get("sanity_checks"))
@@ -248,7 +284,13 @@ def validate_bundle(store: ArtifactStore, bundle_id: str, claim) -> list[tuple[s
 
     # 11 reproducible manifest
     repro = manifest.get("reproducibility", {})
-    checks.append(("11_reproducibility", bool(repro.get("commands")) and bool(repro.get("created_at")), "commands + timestamps present"))
+    checks.append(
+        (
+            "11_reproducibility",
+            bool(repro.get("commands")) and bool(repro.get("created_at")),
+            "commands + timestamps present",
+        )
+    )
 
     # 12 Core pin (D2, a3-core-design.md §1.4 / data-flow-model.md §5):
     # Core imports in dependency_audit REQUIRE workspace_identity.core_revision
@@ -260,21 +302,41 @@ def validate_bundle(store: ArtifactStore, bundle_id: str, claim) -> list[tuple[s
     core_imports = dep.get("core_imports") or []
     core_rev = ws.get("core_revision")
     if core_imports and not core_rev:
-        checks.append(("12_core_pin", False, f"Core imports {core_imports} present without workspace_identity.core_revision"))
+        checks.append(
+            (
+                "12_core_pin",
+                False,
+                f"Core imports {core_imports} present without workspace_identity.core_revision",
+            )
+        )
     elif core_imports:
         detail = f"Core imports {core_imports} pinned to {str(core_rev)[:12]}…"
         try:
             ws_root = Path(str(ws.get("workspace_root") or ""))
             if not ws_root.is_dir():
-                checks.append(("12_core_pin", True, detail + " (workspace not available here — presence verified)"))
+                checks.append(
+                    (
+                        "12_core_pin",
+                        True,
+                        detail + " (workspace not available here — presence verified)",
+                    )
+                )
             else:
                 recomputed = compute_core_revision(ws_root)
                 if recomputed != core_rev:
-                    checks.append(("12_core_pin", False, f"stale Core pin: recorded {str(core_rev)[:12]}…, workspace tree digest {(recomputed or 'none')[:12]}"))
+                    checks.append(
+                        (
+                            "12_core_pin",
+                            False,
+                            f"stale Core pin: recorded {str(core_rev)[:12]}…, workspace tree digest {(recomputed or 'none')[:12]}",
+                        )
+                    )
                 else:
                     checks.append(("12_core_pin", True, detail + " digest matches workspace"))
         except OSError:
-            checks.append(("12_core_pin", True, detail + " (workspace unreadable here — presence verified)"))
+            checks.append(
+                ("12_core_pin", True, detail + " (workspace unreadable here — presence verified)")
+            )
     else:
         checks.append(("12_core_pin", True, "no Core imports; pin not required"))
 

@@ -46,7 +46,8 @@ def _fast_probe(monkeypatch):
     calls the real compile probe, which is a `lake env lean` call. Unit tests
     patch it; the probe itself has a dedicated real-workspace test."""
     monkeypatch.setattr(
-        a3_runner, "probe_statement_compiles",
+        a3_runner,
+        "probe_statement_compiles",
         lambda *a, **k: {"compiles": True, "exit_code": 0, "stderr_tail": ""},
     )
     yield
@@ -56,9 +57,7 @@ def _accepted_claim(
     tmp_path, claim_id: str
 ) -> tuple[ArtifactStore, ClaimRecord, object, str, EventLog]:
     store = ArtifactStore(tmp_path)
-    claim = ClaimRecord(
-        claim_id=claim_id, revision=1, source_text="claim", data_class="PROJECT"
-    )
+    claim = ClaimRecord(claim_id=claim_id, revision=1, source_text="claim", data_class="PROJECT")
     store.save_claim(claim)
     store.write_ei(claim_id, valid_ei(), status="accepted")
     claim.state = "ACCEPTED"
@@ -114,9 +113,7 @@ def test_contaminated_draft_still_fails_after_loop_and_writes_no_artifact(tmp_pa
     dirty = formalize_output(f"theorem {C1_THEOREM} : True := by sorry", C1_THEOREM)
     adapter = FakeAdapter(formalize_factory=_sequence_factory([dirty, dirty, dirty, dirty]))
 
-    state, candidate = a3_runner.formalize_claim(
-        claim, store, log, run_id, adapter, WORKSPACE
-    )
+    state, candidate = a3_runner.formalize_claim(claim, store, log, run_id, adapter, WORKSPACE)
 
     assert state == "FAILED"
     assert candidate is None
@@ -127,7 +124,9 @@ def test_contaminated_draft_still_fails_after_loop_and_writes_no_artifact(tmp_pa
     detail = failed[-1].get("detail") or {}
     assert detail.get("attempts_used") == MAX_REVISION_ATTEMPTS
     assert detail.get("revision_history")
-    assert any("sorry" in str(p) for p in (detail["revision_history"][0].get("static_problems") or []))
+    assert any(
+        "sorry" in str(p) for p in (detail["revision_history"][0].get("static_problems") or [])
+    )
 
 
 def test_attempt_budget_is_enforced_no_silent_fourth_provider_call(tmp_path):
@@ -135,13 +134,9 @@ def test_attempt_budget_is_enforced_no_silent_fourth_provider_call(tmp_path):
     store, claim, events_dir, run_id, log = _accepted_claim(tmp_path, "c-loop-budget")
     dirty = formalize_output("theorem t : True := by sorry", "t")
     fourth = formalize_output("theorem t : True", "t")  # would be valid if a 4th ran
-    adapter = FakeAdapter(
-        formalize_factory=_sequence_factory([dirty, dirty, dirty, fourth])
-    )
+    adapter = FakeAdapter(formalize_factory=_sequence_factory([dirty, dirty, dirty, fourth]))
 
-    state, candidate = a3_runner.formalize_claim(
-        claim, store, log, run_id, adapter, WORKSPACE
-    )
+    state, candidate = a3_runner.formalize_claim(claim, store, log, run_id, adapter, WORKSPACE)
 
     assert state == "FAILED"
     assert candidate is None
@@ -159,9 +154,7 @@ def test_attempt_two_success_records_revision_attempts_equals_two(tmp_path):
     clean = formalize_output("theorem t : True", "t")
     adapter = FakeAdapter(formalize_factory=_sequence_factory([dirty, clean]))
 
-    state, candidate = a3_runner.formalize_claim(
-        claim, store, log, run_id, adapter, WORKSPACE
-    )
+    state, candidate = a3_runner.formalize_claim(claim, store, log, run_id, adapter, WORKSPACE)
 
     assert state == "FORMALIZED"
     assert candidate is not None
@@ -179,21 +172,22 @@ def test_attempt_two_success_records_revision_attempts_equals_two(tmp_path):
 
 def test_audit_clean_probe_fail_retries_then_keeps_formalized(tmp_path, monkeypatch):
     """D2: probe-fail does not FAIL the claim. Leftover budget may chase compile."""
-    probes = iter([
-        {"compiles": False, "exit_code": 1, "stderr_tail": "unknown identifier"},
-        {"compiles": True, "exit_code": 0, "stderr_tail": ""},
-    ])
+    probes = iter(
+        [
+            {"compiles": False, "exit_code": 1, "stderr_tail": "unknown identifier"},
+            {"compiles": True, "exit_code": 0, "stderr_tail": ""},
+        ]
+    )
     monkeypatch.setattr(
-        a3_runner, "probe_statement_compiles",
+        a3_runner,
+        "probe_statement_compiles",
         lambda *a, **k: next(probes),
     )
     store, claim, events_dir, run_id, log = _accepted_claim(tmp_path, "c-loop-probe")
     clean = formalize_output("theorem t : True", "t")
     adapter = FakeAdapter(formalize_factory=_sequence_factory([clean, clean]))
 
-    state, candidate = a3_runner.formalize_claim(
-        claim, store, log, run_id, adapter, WORKSPACE
-    )
+    state, candidate = a3_runner.formalize_claim(claim, store, log, run_id, adapter, WORKSPACE)
 
     assert state == "FORMALIZED"
     assert candidate is not None
@@ -206,16 +200,15 @@ def test_audit_clean_probe_fail_retries_then_keeps_formalized(tmp_path, monkeypa
 
 def test_three_audit_clean_probe_fails_still_formalized(tmp_path, monkeypatch):
     monkeypatch.setattr(
-        a3_runner, "probe_statement_compiles",
+        a3_runner,
+        "probe_statement_compiles",
         lambda *a, **k: {"compiles": False, "exit_code": 1, "stderr_tail": "boom"},
     )
     store, claim, events_dir, run_id, log = _accepted_claim(tmp_path, "c-loop-p3")
     clean = formalize_output("theorem t : True", "t")
     adapter = FakeAdapter(formalize_factory=_sequence_factory([clean, clean, clean, clean]))
 
-    state, candidate = a3_runner.formalize_claim(
-        claim, store, log, run_id, adapter, WORKSPACE
-    )
+    state, candidate = a3_runner.formalize_claim(claim, store, log, run_id, adapter, WORKSPACE)
 
     assert state == "FORMALIZED"
     assert candidate is not None

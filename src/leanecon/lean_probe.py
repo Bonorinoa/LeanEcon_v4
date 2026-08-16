@@ -13,7 +13,6 @@ import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from leanecon.data_policy import canonical_digest
 from leanecon.events import CapabilityStatus
@@ -21,6 +20,7 @@ from leanecon.events import CapabilityStatus
 REASON_LEAN_SYNTAX_ERROR = "LEAN_SYNTAX_ERROR"
 REASON_WORKSPACE_UNPINNED = "WORKSPACE_UNPINNED"
 REASON_LSP_UNAVAILABLE = "LSP_UNAVAILABLE"
+
 
 def _lsp_initialize_request() -> str:
     """JSON-RPC ``initialize`` framed with the required Content-Length
@@ -40,7 +40,7 @@ def _lsp_initialize_request() -> str:
 class ProbeResult:
     capability: str
     status: CapabilityStatus
-    reason_code: Optional[str] = None
+    reason_code: str | None = None
     detail: dict = field(default_factory=dict)
 
 
@@ -54,16 +54,16 @@ class WorkspaceIdentity:
     """
 
     workspace_root: str
-    lean_toolchain: Optional[str]
-    mathlib_revision: Optional[str]
-    core_revision: Optional[str] = None
+    lean_toolchain: str | None
+    mathlib_revision: str | None
+    core_revision: str | None = None
 
     @property
     def pinned(self) -> bool:
         return bool(self.lean_toolchain and self.mathlib_revision)
 
 
-def compute_core_revision(workspace_root: Path) -> Optional[str]:
+def compute_core_revision(workspace_root: Path) -> str | None:
     """Manifest digest of the merged Core module tree (D2, a3-core-design.md §1.4).
 
     SHA-256 over the sorted (relative path, content) pairs of every
@@ -87,7 +87,9 @@ def compute_core_revision(workspace_root: Path) -> Optional[str]:
 def read_workspace_identity(workspace_root: Path) -> WorkspaceIdentity:
     root = Path(workspace_root)
     toolchain_file = root / "lean-toolchain"
-    toolchain = toolchain_file.read_text(encoding="utf-8").strip() if toolchain_file.exists() else None
+    toolchain = (
+        toolchain_file.read_text(encoding="utf-8").strip() if toolchain_file.exists() else None
+    )
     lakefile = root / "lakefile.lean"
     mathlib_rev = None
     if lakefile.exists():
@@ -120,7 +122,9 @@ def probe_workspace(workspace_root: Path) -> ProbeResult:
     )
 
 
-def probe_lean_compile(workspace_root: Path, target: str = "LeanEcon.A1", timeout_s: int = 1800) -> ProbeResult:
+def probe_lean_compile(
+    workspace_root: Path, target: str = "LeanEcon.A1", timeout_s: int = 1800
+) -> ProbeResult:
     """Criterion 1: pinned Lean and Mathlib build successfully."""
     identity = read_workspace_identity(workspace_root)
     if not identity.pinned:

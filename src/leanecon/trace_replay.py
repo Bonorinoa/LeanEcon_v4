@@ -22,7 +22,9 @@ from leanecon.lifecycle import validate_transition
 def _load_events_log(path: Path) -> list[dict]:
     if not path.exists():
         return []
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
 
 
 def _events_for_claim(events: list[dict], claim_id: str) -> list[dict]:
@@ -69,15 +71,23 @@ def _replay_bundles(events: list[dict], store, problems: list[str]) -> list[dict
             # audit-layer failure with a successful compile).
             matches_record = result == verification.get("outcome")
             consistent = matches_record and (result != "VERIFIED" or all_pass)
-            bundles.append({
-                "bundle_id": bundle_id, "result": result, "ok": consistent,
-                "checks": [(c[0], c[1]) for c in checks],
-            })
+            bundles.append(
+                {
+                    "bundle_id": bundle_id,
+                    "result": result,
+                    "ok": consistent,
+                    "checks": [(c[0], c[1]) for c in checks],
+                }
+            )
             if not consistent:
                 if result == "VERIFIED":
-                    problems.append(f"bundle {bundle_id}: claims VERIFIED but checks fail: {[c[0] for c in checks if not c[1]]}")
+                    problems.append(
+                        f"bundle {bundle_id}: claims VERIFIED but checks fail: {[c[0] for c in checks if not c[1]]}"
+                    )
                 else:
-                    problems.append(f"bundle {bundle_id}: result {result} does not match verification outcome {verification.get('outcome')}")
+                    problems.append(
+                        f"bundle {bundle_id}: result {result} does not match verification outcome {verification.get('outcome')}"
+                    )
         except Exception as exc:  # missing artifacts surface as replay problems
             problems.append(f"bundle {bundle_id}: replay error: {exc}")
     return bundles
@@ -103,11 +113,19 @@ def replay_run(events_path: Path, store=None) -> dict:
         chain = claims.setdefault(claim_id, {"states": [], "problems": []})
         if event.get("event_type") == EVENT_CLAIM_STATE_CHANGED:
             chain["states"].append(
-                {"event_id": event.get("event_id"), "from": event.get("state_before"), "to": event.get("state_after")}
+                {
+                    "event_id": event.get("event_id"),
+                    "from": event.get("state_before"),
+                    "to": event.get("state_after"),
+                }
             )
         elif event.get("event_type") == EVENT_VERIFICATION_COMPLETED:
             chain["states"].append(
-                {"event_id": event.get("event_id"), "to": event.get("state_after"), "verification": True}
+                {
+                    "event_id": event.get("event_id"),
+                    "to": event.get("state_after"),
+                    "verification": True,
+                }
             )
 
     bundles = _replay_bundles(events, store, problems) if store is not None else []
@@ -142,12 +160,20 @@ def replay_claim(events_dir: Path, claim_id: str, store=None) -> dict:
             problems.append(f"{event.get('event_id')}: envelope: {problem}")
         if event.get("event_type") == EVENT_CLAIM_STATE_CHANGED:
             chain["states"].append(
-                {"event_id": event.get("event_id"), "from": event.get("state_before"), "to": event.get("state_after")}
+                {
+                    "event_id": event.get("event_id"),
+                    "from": event.get("state_before"),
+                    "to": event.get("state_after"),
+                }
             )
             _check_transition(event, problems)
         elif event.get("event_type") == EVENT_VERIFICATION_COMPLETED:
             chain["states"].append(
-                {"event_id": event.get("event_id"), "to": event.get("state_after"), "verification": True}
+                {
+                    "event_id": event.get("event_id"),
+                    "to": event.get("state_after"),
+                    "verification": True,
+                }
             )
 
     bundles = _replay_bundles(claim_events, store, problems) if store is not None else []

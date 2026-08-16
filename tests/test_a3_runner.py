@@ -19,7 +19,6 @@ from tests.conftest import (
     FIXTURES,
     WORKSPACE,
     complete_mapping_report,
-    elan_on_path,  # noqa: F401
     formalize_output,
     valid_ei,
 )
@@ -34,7 +33,8 @@ def _fast_probe(monkeypatch):
     compile probe is a real `lake env lean` call; unit tests don't need it.
     The probe itself has a dedicated real-workspace test in test_verifier.py."""
     monkeypatch.setattr(
-        a3_runner, "probe_statement_compiles",
+        a3_runner,
+        "probe_statement_compiles",
         lambda *a, **k: {"compiles": True, "exit_code": 0, "stderr_tail": ""},
     )
     yield
@@ -54,7 +54,9 @@ def _args(tmp_path, **kwargs) -> Namespace:
     return Namespace(**base)
 
 
-def _walk_to_review(tmp_path, claim_id="c1", ei_factory=None) -> tuple[ArtifactStore, ClaimRecord, Path, dict]:
+def _walk_to_review(
+    tmp_path, claim_id="c1", ei_factory=None
+) -> tuple[ArtifactStore, ClaimRecord, Path, dict]:
     from tests.conftest import FakeAdapter
 
     store = ArtifactStore(tmp_path)
@@ -71,7 +73,9 @@ def _walk_to_review(tmp_path, claim_id="c1", ei_factory=None) -> tuple[ArtifactS
 
 def test_restricted_class_denied_at_ingest(tmp_path):
     store = ArtifactStore(tmp_path)
-    rc = a3_runner.cmd_ingest(_args(tmp_path, claim_id="bad", claim_text="x", claim_class="RESTRICTED"), store)
+    rc = a3_runner.cmd_ingest(
+        _args(tmp_path, claim_id="bad", claim_text="x", claim_class="RESTRICTED"), store
+    )
     assert rc == 1
     assert store.list_claims() == []
     events = list((tmp_path / "events").glob("*.jsonl"))
@@ -82,18 +86,37 @@ def test_restricted_class_denied_at_ingest(tmp_path):
 
 def test_gold_marker_in_claim_text_denied_at_ingest(tmp_path):
     store = ArtifactStore(tmp_path)
-    rc = a3_runner.cmd_ingest(_args(tmp_path, claim_id="gold", claim_text="the sealed_gold answer is x",
-                                    claim_class="PROJECT"), store)
+    rc = a3_runner.cmd_ingest(
+        _args(
+            tmp_path,
+            claim_id="gold",
+            claim_text="the sealed_gold answer is x",
+            claim_class="PROJECT",
+        ),
+        store,
+    )
     assert rc == 1
     assert store.list_claims() == []
-    records = [json.loads(l) for p in (tmp_path / "events").glob("*.jsonl") for l in p.read_text().splitlines() if l.strip()]
+    records = [
+        json.loads(l)
+        for p in (tmp_path / "events").glob("*.jsonl")
+        for l in p.read_text().splitlines()
+        if l.strip()
+    ]
     assert any(r.get("reason_codes") == ["INPUT_REJECTED"] for r in records)
 
 
 def test_gold_marker_key_in_claim_text_denied(tmp_path):
     store = ArtifactStore(tmp_path)
-    rc = a3_runner.cmd_ingest(_args(tmp_path, claim_id="gold2", claim_text="payload has gold_statement field",
-                                    claim_class="PROJECT"), store)
+    rc = a3_runner.cmd_ingest(
+        _args(
+            tmp_path,
+            claim_id="gold2",
+            claim_text="payload has gold_statement field",
+            claim_class="PROJECT",
+        ),
+        store,
+    )
     assert rc == 1
 
 
@@ -112,14 +135,34 @@ def test_interpret_review_none_noted_requires_acknowledgement(tmp_path, elan_on_
     assert state == "REVIEW_REQUIRED"
 
     # approve without acknowledgement must be refused
-    rc = a3_runner.cmd_review(_args(tmp_path, claim_id="c1", decision="approve", reviewer="cto",
-                                    acknowledge_none_noted=False, notes="", reason=""), store)
+    rc = a3_runner.cmd_review(
+        _args(
+            tmp_path,
+            claim_id="c1",
+            decision="approve",
+            reviewer="cto",
+            acknowledge_none_noted=False,
+            notes="",
+            reason="",
+        ),
+        store,
+    )
     assert rc == 1
     assert store.load_claim("c1").state == "REVIEW_REQUIRED"
 
     # with acknowledgement the approval lands
-    rc = a3_runner.cmd_review(_args(tmp_path, claim_id="c1", decision="approve", reviewer="cto",
-                                    acknowledge_none_noted=True, notes="ok", reason=""), store)
+    rc = a3_runner.cmd_review(
+        _args(
+            tmp_path,
+            claim_id="c1",
+            decision="approve",
+            reviewer="cto",
+            acknowledge_none_noted=True,
+            notes="ok",
+            reason="",
+        ),
+        store,
+    )
     assert rc == 0
     assert store.load_claim("c1").state == "ACCEPTED"
     accepted_rev = store.load_claim("c1").accepted_ei_rev
@@ -130,9 +173,18 @@ def test_interpret_review_none_noted_requires_acknowledgement(tmp_path, elan_on_
 
 def test_reject_path_is_terminal(tmp_path):
     store, claim, events_dir, ei = _walk_to_review(tmp_path, claim_id="c-rej")
-    rc = a3_runner.cmd_review(_args(tmp_path, claim_id="c-rej", decision="reject", reviewer="cto",
-                                    acknowledge_none_noted=False, notes="ambiguous",
-                                    reason="SEMANTIC_AMBIGUITY"), store)
+    rc = a3_runner.cmd_review(
+        _args(
+            tmp_path,
+            claim_id="c-rej",
+            decision="reject",
+            reviewer="cto",
+            acknowledge_none_noted=False,
+            notes="ambiguous",
+            reason="SEMANTIC_AMBIGUITY",
+        ),
+        store,
+    )
     assert rc == 0
     assert store.load_claim("c-rej").state == "REJECTED"
 
@@ -166,17 +218,32 @@ def test_mapping_gaps_block_proving(tmp_path):
 
     # verify must be refused while gaps are unacknowledged
     with pytest.raises(SystemExit):
-        a3_runner.cmd_verify(_args(tmp_path, claim_id="c-gap", proof=str(FIXTURES / "c1_attainable.lean"),
-                                   timeout=120), store)
+        a3_runner.cmd_verify(
+            _args(
+                tmp_path, claim_id="c-gap", proof=str(FIXTURES / "c1_attainable.lean"), timeout=120
+            ),
+            store,
+        )
 
     # the FORMALIZED state event must be in the trace even with gaps
-    records = [json.loads(l) for p in (tmp_path / "events").glob("*.jsonl") for l in p.read_text().splitlines() if l.strip()]
-    formalized_events = [r for r in records if r.get("event_type") == "CLAIM_STATE_CHANGED" and r.get("state_after") == "FORMALIZED"]
+    records = [
+        json.loads(l)
+        for p in (tmp_path / "events").glob("*.jsonl")
+        for l in p.read_text().splitlines()
+        if l.strip()
+    ]
+    formalized_events = [
+        r
+        for r in records
+        if r.get("event_type") == "CLAIM_STATE_CHANGED" and r.get("state_after") == "FORMALIZED"
+    ]
     assert formalized_events, "FORMALIZED state event missing from trace when gaps present"
     assert formalized_events[-1]["detail"].get("gap_count") == 1
 
     # gap acknowledgement then allows verify to start
-    rc = a3_runner.cmd_gap_ack(_args(tmp_path, claim_id="c-gap", reviewer="cto", notes="accepted"), store)
+    rc = a3_runner.cmd_gap_ack(
+        _args(tmp_path, claim_id="c-gap", reviewer="cto", notes="accepted"), store
+    )
     assert rc == 0
     assert store.list_review_records("c-gap", "gap")
 
@@ -198,8 +265,21 @@ def test_full_walkthrough_verified_with_axiom_loop(tmp_path, elan_on_path):
     assert state == "REVIEW_REQUIRED"
 
     # 2. reviewer approves with acknowledgement
-    assert a3_runner.cmd_review(_args(tmp_path, claim_id="c1", decision="approve", reviewer="cto",
-                                      acknowledge_none_noted=True, notes="ok", reason=""), store) == 0
+    assert (
+        a3_runner.cmd_review(
+            _args(
+                tmp_path,
+                claim_id="c1",
+                decision="approve",
+                reviewer="cto",
+                acknowledge_none_noted=True,
+                notes="ok",
+                reason="",
+            ),
+            store,
+        )
+        == 0
+    )
     claim = store.load_claim("c1")
     assert claim.state == "ACCEPTED"
 
@@ -231,8 +311,12 @@ def test_full_walkthrough_verified_with_axiom_loop(tmp_path, elan_on_path):
     assert used
 
     # 5. reviewer approves exactly the axioms the kernel surfaced
-    assert a3_runner.cmd_axiom_approve(_args(tmp_path, claim_id="c1", reviewer="cto",
-                                             axioms=",".join(used), notes=""), store) == 0
+    assert (
+        a3_runner.cmd_axiom_approve(
+            _args(tmp_path, claim_id="c1", reviewer="cto", axioms=",".join(used), notes=""), store
+        )
+        == 0
+    )
 
     # 6. retry on the same candidate -> VERIFIED
     a3_runner.cmd_verify(_args(tmp_path, claim_id="c1", proof=proof, timeout=240), store)
@@ -247,8 +331,16 @@ def test_full_walkthrough_verified_with_axiom_loop(tmp_path, elan_on_path):
     report = a3_runner.replay_claim(events_dir, "c1", store=store)
     assert report["replay_ok"], report["problems"]
     states = [s["to"] for s in report["claims"]["states"] if "to" in s]
-    assert states == ["INTERPRETED", "REVIEW_REQUIRED", "ACCEPTED", "FORMALIZED",
-                      "PROVING", "FAILED", "PROVING", "VERIFIED"]
+    assert states == [
+        "INTERPRETED",
+        "REVIEW_REQUIRED",
+        "ACCEPTED",
+        "FORMALIZED",
+        "PROVING",
+        "FAILED",
+        "PROVING",
+        "VERIFIED",
+    ]
     assert any(b["ok"] for b in report["bundles"])
 
     # 8. status command is readable
@@ -268,7 +360,12 @@ def test_provider_outage_is_blocked(tmp_path):
     claim.state = state
     store.save_claim(claim)
     assert state == "BLOCKED"
-    records = [json.loads(l) for p in (tmp_path / "events").glob("*.jsonl") for l in p.read_text().splitlines() if l.strip()]
+    records = [
+        json.loads(l)
+        for p in (tmp_path / "events").glob("*.jsonl")
+        for l in p.read_text().splitlines()
+        if l.strip()
+    ]
     assert any(r.get("reason_codes") == ["PROVIDER_UNAVAILABLE"] for r in records)
 
 
@@ -285,9 +382,12 @@ def test_malformed_interpret_output_is_failed(tmp_path):
             from leanecon.events import CapabilityStatus
             from leanecon.providers import ProviderMetadata, ProviderResponse
 
-            return ProviderResponse(capability=capability, status=CapabilityStatus.HEALTHY,
-                                    output={"content": "this is not json"},
-                                    metadata=ProviderMetadata(provider="mistral", model=model))
+            return ProviderResponse(
+                capability=capability,
+                status=CapabilityStatus.HEALTHY,
+                output={"content": "this is not json"},
+                metadata=ProviderMetadata(provider="mistral", model=model),
+            )
 
     state, ei = a3_runner.interpret_claim(claim, store, log, run_id, MalformedAdapter())
     claim.state = state
@@ -313,14 +413,23 @@ def test_formalize_rejects_statement_with_sorry(tmp_path):
     def factory():
         return formalize_output(f"theorem {C1_THEOREM} : True := by sorry", C1_THEOREM)
 
-    state, candidate = a3_runner.formalize_claim(claim, store, log, run_id,
-                                                 FakeAdapter(formalize_factory=factory), WORKSPACE)
+    state, candidate = a3_runner.formalize_claim(
+        claim, store, log, run_id, FakeAdapter(formalize_factory=factory), WORKSPACE
+    )
     assert state == "FAILED"
     assert candidate is None
     assert store.formal_revs("c-sorry") == []
-    records = [json.loads(l) for p in (tmp_path / "events").glob("*.jsonl") for l in p.read_text().splitlines() if l.strip()]
-    assert any(r.get("reason_codes") == ["PROVIDER_INVALID_OUTPUT"] and
-               "statement_problems" in r.get("detail", {}) for r in records)
+    records = [
+        json.loads(l)
+        for p in (tmp_path / "events").glob("*.jsonl")
+        for l in p.read_text().splitlines()
+        if l.strip()
+    ]
+    assert any(
+        r.get("reason_codes") == ["PROVIDER_INVALID_OUTPUT"]
+        and "statement_problems" in r.get("detail", {})
+        for r in records
+    )
 
 
 def test_formalize_requires_force_for_reformulation(tmp_path):
@@ -335,7 +444,7 @@ def test_formalize_requires_force_for_reformulation(tmp_path):
     run_id, log = a3_runner._new_run(events_dir)
     from tests.conftest import FakeAdapter
 
-    adapter = FakeAdapter(formalize_factory=lambda: formalize_output(f"theorem t1 : True", "t1"))
+    adapter = FakeAdapter(formalize_factory=lambda: formalize_output("theorem t1 : True", "t1"))
     state, _ = a3_runner.formalize_claim(claim, store, log, run_id, adapter, WORKSPACE)
     claim.state = state
     claim.formal_rev = store.formal_revs("c-f")[-1]
@@ -349,9 +458,14 @@ def test_formalize_requires_force_for_reformulation(tmp_path):
 
     # with --force a NEW formal revision supersedes (FORMALIZED -> FORMALIZED)
     run_id2, log2 = a3_runner._new_run(events_dir)
-    state2, candidate2 = a3_runner.formalize_claim(claim, store, log2, run_id2,
-                                                   FakeAdapter(formalize_factory=lambda: formalize_output("theorem t2 : True", "t2")),
-                                                   WORKSPACE)
+    state2, candidate2 = a3_runner.formalize_claim(
+        claim,
+        store,
+        log2,
+        run_id2,
+        FakeAdapter(formalize_factory=lambda: formalize_output("theorem t2 : True", "t2")),
+        WORKSPACE,
+    )
     claim.state = state2
     claim.formal_rev = store.formal_revs("c-f")[-1]
     store.save_claim(claim)
@@ -379,8 +493,13 @@ def test_formalize_rejection_keeps_previous_rev(tmp_path):
 
     # a first successful formalization establishes a formal_rev
     state, _ = a3_runner.formalize_claim(
-        claim, store, log, run_id,
-        FakeAdapter(formalize_factory=lambda: formalize_output("theorem t1 : True", "t1")), WORKSPACE)
+        claim,
+        store,
+        log,
+        run_id,
+        FakeAdapter(formalize_factory=lambda: formalize_output("theorem t1 : True", "t1")),
+        WORKSPACE,
+    )
     claim.state = state
     claim.formal_rev = store.formal_revs("c-keep")[-1]
     store.save_claim(claim)
@@ -388,9 +507,15 @@ def test_formalize_rejection_keeps_previous_rev(tmp_path):
 
     # the second attempt is rejected -> FAILED, previous rev kept
     state, candidate = a3_runner.formalize_claim(
-        claim, store, log, run_id,
-        FakeAdapter(formalize_factory=lambda: formalize_output("theorem t2 : True := by sorry", "t2")),
-        WORKSPACE)
+        claim,
+        store,
+        log,
+        run_id,
+        FakeAdapter(
+            formalize_factory=lambda: formalize_output("theorem t2 : True := by sorry", "t2")
+        ),
+        WORKSPACE,
+    )
     claim.state = state
     store.save_claim(claim)
     assert state == "FAILED"
@@ -414,8 +539,13 @@ def test_formalize_retry_from_failed(tmp_path):
     from tests.conftest import FakeAdapter
 
     state, candidate = a3_runner.formalize_claim(
-        claim, store, log, run_id,
-        FakeAdapter(formalize_factory=lambda: formalize_output("theorem t3 : True", "t3")), WORKSPACE)
+        claim,
+        store,
+        log,
+        run_id,
+        FakeAdapter(formalize_factory=lambda: formalize_output("theorem t3 : True", "t3")),
+        WORKSPACE,
+    )
     claim.state = state
     claim.formal_rev = store.formal_revs("c-retry")[-1]
     store.save_claim(claim)
@@ -439,11 +569,19 @@ def test_formalize_probe_and_vacuity_recorded(tmp_path, monkeypatch):
 
     # vacuous statement: conclusion restates a hypothesis
     statement = f"theorem {C1_THEOREM} (h : P) : P"
-    monkeypatch.setattr(a3_runner, "probe_statement_compiles",
-                        lambda *a, **k: {"compiles": False, "exit_code": 1, "stderr_tail": "boom"})
+    monkeypatch.setattr(
+        a3_runner,
+        "probe_statement_compiles",
+        lambda *a, **k: {"compiles": False, "exit_code": 1, "stderr_tail": "boom"},
+    )
     state, candidate = a3_runner.formalize_claim(
-        claim, store, log, run_id,
-        FakeAdapter(formalize_factory=lambda: formalize_output(statement, C1_THEOREM)), WORKSPACE)
+        claim,
+        store,
+        log,
+        run_id,
+        FakeAdapter(formalize_factory=lambda: formalize_output(statement, C1_THEOREM)),
+        WORKSPACE,
+    )
     claim.state = state
     claim.formal_rev = store.formal_revs("c-pv")[-1]
     store.save_claim(claim)
@@ -478,14 +616,24 @@ def test_formalize_rejects_root_namespace_scaffolding(tmp_path):
 
     statement = "abbrev Bundle := ℝ\n\ntheorem t : True"
     state, candidate = a3_runner.formalize_claim(
-        claim, store, log, run_id,
-        FakeAdapter(formalize_factory=lambda: formalize_output(statement, "t")), WORKSPACE)
+        claim,
+        store,
+        log,
+        run_id,
+        FakeAdapter(formalize_factory=lambda: formalize_output(statement, "t")),
+        WORKSPACE,
+    )
     claim.state = state
     store.save_claim(claim)
     assert state == "FAILED"
     assert candidate is None
     assert len(store.formal_revs("c-d4")) == 0  # no artifact pollution
-    records = [json.loads(l) for p in (tmp_path / "events").glob("*.jsonl") for l in p.read_text().splitlines() if l.strip()]
+    records = [
+        json.loads(l)
+        for p in (tmp_path / "events").glob("*.jsonl")
+        for l in p.read_text().splitlines()
+        if l.strip()
+    ]
     assert any(r.get("reason_codes") == ["PROVIDER_INVALID_OUTPUT"] for r in records)
 
 
@@ -504,15 +652,16 @@ def test_formalize_accepts_namespaced_scaffolding(tmp_path):
     from tests.conftest import FakeAdapter
 
     statement = (
-        "namespace A3Scaffolding.c1\n"
-        "abbrev Bundle := ℝ\n"
-        "end A3Scaffolding.c1\n"
-        "\n"
-        "theorem t : True"
+        "namespace A3Scaffolding.c1\nabbrev Bundle := ℝ\nend A3Scaffolding.c1\n\ntheorem t : True"
     )
     state, candidate = a3_runner.formalize_claim(
-        claim, store, log, run_id,
-        FakeAdapter(formalize_factory=lambda: formalize_output(statement, "t")), WORKSPACE)
+        claim,
+        store,
+        log,
+        run_id,
+        FakeAdapter(formalize_factory=lambda: formalize_output(statement, "t")),
+        WORKSPACE,
+    )
     claim.state = state
     claim.formal_rev = store.formal_revs("c-d4ok")[-1]
     store.save_claim(claim)
@@ -712,7 +861,9 @@ def test_formalize_from_file_failed_then_recovery_replay(tmp_path):
         ),
         encoding="utf-8",
     )
-    assert a3_runner.cmd_formalize(_args(tmp_path, claim_id="c-rec", from_file=str(bad)), store) == 0
+    assert (
+        a3_runner.cmd_formalize(_args(tmp_path, claim_id="c-rec", from_file=str(bad)), store) == 0
+    )
     assert store.load_claim("c-rec").state == "FAILED"
 
     good = tmp_path / "good.json"
@@ -726,7 +877,9 @@ def test_formalize_from_file_failed_then_recovery_replay(tmp_path):
         ),
         encoding="utf-8",
     )
-    assert a3_runner.cmd_formalize(_args(tmp_path, claim_id="c-rec", from_file=str(good)), store) == 0
+    assert (
+        a3_runner.cmd_formalize(_args(tmp_path, claim_id="c-rec", from_file=str(good)), store) == 0
+    )
     claim = store.load_claim("c-rec")
     assert claim.state == "FORMALIZED"
 

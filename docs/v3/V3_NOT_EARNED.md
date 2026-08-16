@@ -1,8 +1,9 @@
 # v3.0.0 — verdict MISSED (do not tag)
 
 **Status:** held-out scored 2026-08-13. 60–70% **NOT met**. **Do not
-tag.** INIT_V3 Phase 5 earn rule is not met (verdict must be met, or a
-CTO-approved narrowed promise; this is neither).
+tag.** Package on this branch is `3.0.0.dev0`. INIT_V3 Phase 5 earn
+rule is not met (verdict must be met, or a CTO-approved narrowed
+promise; this is neither until the CTO says so).
 
 ## Held-out numbers (frozen split, final pipeline)
 

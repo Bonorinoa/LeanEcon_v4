@@ -5,7 +5,9 @@ collaborator that takes English economic claims through reviewed interpretation,
 Lean 4 formalization, and kernel-checked verification — producing auditable
 traces and verification bundles rather than bare "compiles" claims.
 
-**Current release: v2.0.0 Phoenix** (package version in `pyproject.toml`).
+**Current supported release: v2.0.0 Phoenix** on `main`. This worktree
+is package `3.0.0.dev0` / builder `leanecon-a3-3.0.0.dev0` — a
+development line, not a tag. See `docs/releases/DEVELOPMENT.md`.
 
 ## Product thesis
 
@@ -87,8 +89,8 @@ the **v3 measurement goal**, not a result this tree claims.
 | **v0.2** reviewer recovery + AI reviewer + ops | ✅ shipped |
 | **v0.3** eval skeleton | ✅ shipped |
 | **v1.0.0** supported verified workflow | ✅ shipped |
-| **v2.0.0 Phoenix** assist foundation | ✅ shipped — AI reviewer exercised; `revise_loop` + `skeleton` libraries; B2 spike tracked |
-| **v3 Phase 1** (unreleased) | live `formalize` calls `revise_loop` (this worktree; not tagged) |
+| **v2.0.0 Phoenix** assist foundation | ✅ shipped on `main` — AI reviewer exercised; `revise_loop` + `skeleton` were libraries at tag |
+| **v3 development** (unreleased `3.0.0.dev0`) | loop live; fixture scorer + CI; `skeleton` CLI; sealed eval protocol; 60–70% **MISSED** (2/8). Not tagged |
 
 Evidence packets: `docs/releases/`. Decision log: `docs/gate3/DECISION_LOG.md`.
 

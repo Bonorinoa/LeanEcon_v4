@@ -17,7 +17,7 @@ import pytest
 from leanecon import a3_runner
 from leanecon.claim_store import ArtifactStore, ClaimRecord
 from leanecon.skeleton import skeleton_edit_distance, validate_skeleton
-from tests.conftest import formalize_output, valid_ei, WORKSPACE
+from tests.conftest import WORKSPACE, formalize_output, valid_ei
 
 SKELETON = """theorem t : True := by
   have h1 : True := by
@@ -59,7 +59,10 @@ def _formalized(tmp_path, claim_id: str = "c-skel"):
     from tests.conftest import FakeAdapter
 
     state, _ = a3_runner.formalize_claim(
-        claim, store, log, run_id,
+        claim,
+        store,
+        log,
+        run_id,
         FakeAdapter(formalize_factory=lambda: formalize_output("theorem t : True", "t")),
         WORKSPACE,
     )
@@ -79,9 +82,7 @@ def test_skeleton_subcommand_stores_drafting_artifact(tmp_path):
     store, claim = _formalized(tmp_path)
     path = tmp_path / "skel.lean"
     path.write_text(SKELETON, encoding="utf-8")
-    rc = a3_runner.cmd_skeleton(
-        _args(tmp_path, claim_id=claim.claim_id, file=str(path)), store
-    )
+    rc = a3_runner.cmd_skeleton(_args(tmp_path, claim_id=claim.claim_id, file=str(path)), store)
     assert rc == 0
     assert store.skeleton_revs(claim.claim_id) == [1]
     artifact = store.read_skeleton(claim.claim_id)
@@ -97,9 +98,7 @@ def test_unresolved_skeleton_blocks_verify(tmp_path):
     path.write_text(SKELETON, encoding="utf-8")
     a3_runner.cmd_skeleton(_args(tmp_path, claim_id=claim.claim_id, file=str(path)), store)
     with pytest.raises(SystemExit, match="unresolved skeleton gaps"):
-        a3_runner.cmd_verify(
-            _args(tmp_path, claim_id=claim.claim_id, proof=str(path)), store
-        )
+        a3_runner.cmd_verify(_args(tmp_path, claim_id=claim.claim_id, proof=str(path)), store)
 
 
 def test_no_skeleton_does_not_change_verify_gap_guard(tmp_path):

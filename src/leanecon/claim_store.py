@@ -15,9 +15,8 @@ import json
 import re
 import uuid
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional
 
 from leanecon.data_policy import canonical_digest
 
@@ -30,7 +29,7 @@ FORMAL_STATUS_SUPERSEDED = "superseded"
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _without_digest(payload: dict) -> dict:
@@ -46,9 +45,9 @@ class ClaimRecord:
     source_text: str
     data_class: str
     state: str = "DRAFT"
-    accepted_ei_rev: Optional[int] = None
-    formal_rev: Optional[int] = None
-    current_bundle: Optional[str] = None
+    accepted_ei_rev: int | None = None
+    formal_rev: int | None = None
+    current_bundle: str | None = None
     created_at: str = field(default_factory=_now)
     updated_at: str = field(default_factory=_now)
 
@@ -56,7 +55,7 @@ class ClaimRecord:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "ClaimRecord":
+    def from_dict(cls, data: dict) -> ClaimRecord:
         known = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
         return cls(**known)
 
@@ -158,7 +157,10 @@ class ArtifactStore:
         (changed accepted interpretation invalidates downstream artifacts)."""
         for rev in self.formal_revs(claim_id):
             artifact = self.read_formal(claim_id, rev)
-            if artifact.get("interpretation_digest") != ei_digest and artifact.get("status") == FORMAL_STATUS_CURRENT:
+            if (
+                artifact.get("interpretation_digest") != ei_digest
+                and artifact.get("status") == FORMAL_STATUS_CURRENT
+            ):
                 artifact["status"] = FORMAL_STATUS_SUPERSEDED
                 artifact["superseded_at"] = _now()
                 self.write_json(self._formal_dir(claim_id) / f"rev-{rev}.json", artifact)
@@ -218,12 +220,16 @@ class ArtifactStore:
         bundle_dir.mkdir(parents=True, exist_ok=True)
         for name, content in files.items():
             if isinstance(content, dict):
-                (bundle_dir / name).write_text(json.dumps(content, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+                (bundle_dir / name).write_text(
+                    json.dumps(content, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+                )
             else:
                 (bundle_dir / name).write_text(content, encoding="utf-8")
         manifest = dict(manifest)
         manifest["manifest_digest"] = canonical_digest(_without_digest(manifest))
-        (bundle_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        (bundle_dir / "manifest.json").write_text(
+            json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
         return bundle_dir
 
     def read_bundle_manifest(self, bundle_id: str) -> dict:

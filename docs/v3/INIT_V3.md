@@ -1,9 +1,9 @@
 # INIT_V3 — proposed v2→v3 roadmap (Phoenix → constrained auto-formalize)
 
-**Status:** Phase 0 **approved as proposed** 2026-08-12. Phase 1
-**implemented** on branch `v3/phase1-wire-loop` 2026-08-13 (live
-first_try_valid **1/3**, sole-author **0%**). Not a tag promise.
-No PR until later phases have verifiable checks. Empty `clarify`
+**Status:** Phase 0 **approved as proposed** 2026-08-12. Phases 1–3
+**implemented** on branch `v3/phase1-wire-loop`; Phase 4 skipped;
+60–70% **MISSED** (2/8). Package is `3.0.0.dev0` — not a tag promise.
+No PR / merge / tag until the CTO authorizes. Empty `clarify`
 is still not consent.
 **Base:** `main` @ `9c12936` = tag `v2.0.0` Phoenix, package `2.0.0`,
 pytest **176**, remote **main-only**.

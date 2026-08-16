@@ -181,3 +181,20 @@ and must be resolved before any release-labeled work.
   FALSE (metavars); D FORMALIZED t2 probe TRUE.
 - **Verdict: 60–70% MISSED — draft_complete 2/4 (50%).** first_try 0/4,
   sole_author 0%. Loop earned both successes (A=3, D=2). No tag.
+
+## 2026-08-16 — v3 stabilize (Codex recovery; unreleased)
+
+- Codex `usage_limited` mid-goal after proposing 5 tasks. Kept #1
+  (release truth as `3.0.0.dev0`) and #2 plumbing (sealed eval);
+  finished #5 as ruff + release-state in CI. **Dropped #4 B2 proving**
+  (out of INIT_V3). **Did not retune** on spent holdouts (#3).
+- `leanecon.release_state` + `scripts/check_release_state.py`:
+  `.dev0` requires `DEVELOPMENT.md`; final `X.Y.Z` requires `vX.Y.Z`
+  at HEAD.
+- `leanecon.eval_protocol` protocol id `formalizer-sealed-1`.
+  Hygiene / kernel / semantic stay uncollapsed. No new holdout text
+  in the tree.
+- README no longer claims `pyproject.toml` is the shipped v2 package.
+- DECISION_LOG 41–45 recorded as branch-local; tag still pending.
+- Predictions first: `docs/eval/v3-stabilize-expectations.md`.
+

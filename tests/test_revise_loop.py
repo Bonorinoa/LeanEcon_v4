@@ -16,12 +16,8 @@ The three non-negotiable loop semantics under test:
    revision history (per-attempt feedback) is recorded for the packet.
 """
 
-import pytest
-
 from leanecon.revise_loop import (
     MAX_REVISION_ATTEMPTS,
-    Feedback,
-    ReviseOutcome,
     revise_statement_draft,
 )
 
@@ -53,9 +49,7 @@ def test_contaminated_candidate_is_rejected_by_audit_gate_even_when_it_compiles(
         return True, ""
 
     outcome = revise_statement_draft(
-        draft_fn=_draft_sequence(
-            ["theorem t : True := sorry", "theorem t : True"]
-        ),
+        draft_fn=_draft_sequence(["theorem t : True := sorry", "theorem t : True"]),
         audit=audit,
         probe=probe,
     )
@@ -94,6 +88,7 @@ def test_attempt_budget_is_enforced_no_silent_extra_attempts():
 
 def test_clean_candidate_passes_within_budget_and_records_revision_history():
     """A clean draft passes within budget; per-attempt feedback is logged."""
+
     def audit(stmt):
         return ["bad draft"] if "bad" in stmt else []
 

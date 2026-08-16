@@ -23,7 +23,6 @@ import subprocess
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from leanecon.claim_store import sanitize_module_part
 from leanecon.events import CapabilityStatus
@@ -44,7 +43,7 @@ class VerificationRecord:
     run_id: str
     theorem_name: str
     compile_ok: bool
-    exit_code: Optional[int]
+    exit_code: int | None
     timed_out: bool
     stderr_tail: str
     axiom_list: list[str]
@@ -53,7 +52,7 @@ class VerificationRecord:
     candidate_path: str
     elapsed_ms: int
     outcome: str  # VERIFIED | FAILED | BLOCKED
-    reason_code: Optional[str] = None
+    reason_code: str | None = None
     detail: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -135,7 +134,10 @@ def _strip_lean_comments(source: str) -> str:
     return "\n".join(out)
 
 
-_THEOREM_RE = re.compile(r"^(?P<prefix>(?:noncomputable\s+|private\s+|protected\s+|@\[[^\]]*\]\s+)*)theorem\s+(?P<name>[^\s:(]+)(?P<sig>.*)$", re.DOTALL)
+_THEOREM_RE = re.compile(
+    r"^(?P<prefix>(?:noncomputable\s+|private\s+|protected\s+|@\[[^\]]*\]\s+)*)theorem\s+(?P<name>[^\s:(]+)(?P<sig>.*)$",
+    re.DOTALL,
+)
 
 _IMPORT_RE = re.compile(r"^import\s+\S+.*$", re.MULTILINE)
 
@@ -167,7 +169,9 @@ def _axiom_wrap_signature(statement_text: str) -> str:
     return wrapped
 
 
-def probe_statement_compiles(workspace_root: Path, statement_text: str, timeout_s: int = 180) -> dict:
+def probe_statement_compiles(
+    workspace_root: Path, statement_text: str, timeout_s: int = 180
+) -> dict:
     """Compile the formalizer's statement in the pinned workspace (evaluation signal).
 
     Returns {compiles: bool, exit_code: int|None, stderr_tail: str}. A
@@ -220,7 +224,7 @@ def verify_candidate(
     theorem_name: str,
     run_id: str,
     claim_id: str,
-    approved_axioms: Optional[frozenset] = None,
+    approved_axioms: frozenset | None = None,
     timeout_s: int = 600,
 ) -> VerificationRecord:
     """Compile and audit one candidate in the pinned workspace."""
@@ -229,10 +233,20 @@ def verify_candidate(
     identity = read_workspace_identity(workspace_root)
     if not identity.pinned:
         return VerificationRecord(
-            claim_id=claim_id, run_id=run_id, theorem_name=theorem_name,
-            compile_ok=False, exit_code=None, timed_out=False, stderr_tail="workspace unpinned",
-            axiom_list=[], static_sorry_ok=False, workspace_pinned=False,
-            candidate_path="", elapsed_ms=0, outcome="BLOCKED", reason_code=REASON_WORKSPACE_UNPINNED,
+            claim_id=claim_id,
+            run_id=run_id,
+            theorem_name=theorem_name,
+            compile_ok=False,
+            exit_code=None,
+            timed_out=False,
+            stderr_tail="workspace unpinned",
+            axiom_list=[],
+            static_sorry_ok=False,
+            workspace_pinned=False,
+            candidate_path="",
+            elapsed_ms=0,
+            outcome="BLOCKED",
+            reason_code=REASON_WORKSPACE_UNPINNED,
             detail={"workspace_root": str(workspace_root)},
         )
 
@@ -257,33 +271,62 @@ def verify_candidate(
     static_sorry_ok = static.status is CapabilityStatus.HEALTHY
     if not static_sorry_ok:
         return VerificationRecord(
-            claim_id=claim_id, run_id=run_id, theorem_name=theorem_name,
-            compile_ok=False, exit_code=None, timed_out=False,
-            stderr_tail="static sorry scan", axiom_list=[], static_sorry_ok=False,
-            workspace_pinned=True, candidate_path=str(candidate_path), elapsed_ms=0,
-            outcome="FAILED", reason_code=REASON_SORRY_FOUND,
+            claim_id=claim_id,
+            run_id=run_id,
+            theorem_name=theorem_name,
+            compile_ok=False,
+            exit_code=None,
+            timed_out=False,
+            stderr_tail="static sorry scan",
+            axiom_list=[],
+            static_sorry_ok=False,
+            workspace_pinned=True,
+            candidate_path=str(candidate_path),
+            elapsed_ms=0,
+            outcome="FAILED",
+            reason_code=REASON_SORRY_FOUND,
             detail={"marker": static.detail.get("marker")},
         )
 
-    exit_code, stdout, stderr, timed_out = run_lake_env_lean(workspace_root, candidate_path, timeout_s)
+    exit_code, stdout, stderr, timed_out = run_lake_env_lean(
+        workspace_root, candidate_path, timeout_s
+    )
     elapsed_ms = int((time.monotonic() - started) * 1000)
 
     if timed_out:
         return VerificationRecord(
-            claim_id=claim_id, run_id=run_id, theorem_name=theorem_name,
-            compile_ok=False, exit_code=None, timed_out=True, stderr_tail=stderr[-500:],
-            axiom_list=[], static_sorry_ok=True, workspace_pinned=True,
-            candidate_path=str(candidate_path), elapsed_ms=elapsed_ms,
-            outcome="FAILED", reason_code=REASON_PROOF_TIMEOUT,
+            claim_id=claim_id,
+            run_id=run_id,
+            theorem_name=theorem_name,
+            compile_ok=False,
+            exit_code=None,
+            timed_out=True,
+            stderr_tail=stderr[-500:],
+            axiom_list=[],
+            static_sorry_ok=True,
+            workspace_pinned=True,
+            candidate_path=str(candidate_path),
+            elapsed_ms=elapsed_ms,
+            outcome="FAILED",
+            reason_code=REASON_PROOF_TIMEOUT,
             detail={"timeout_s": timeout_s},
         )
     if exit_code is None:
         return VerificationRecord(
-            claim_id=claim_id, run_id=run_id, theorem_name=theorem_name,
-            compile_ok=False, exit_code=None, timed_out=False, stderr_tail=stderr[-500:],
-            axiom_list=[], static_sorry_ok=True, workspace_pinned=True,
-            candidate_path=str(candidate_path), elapsed_ms=elapsed_ms,
-            outcome="BLOCKED", reason_code=REASON_WORKSPACE_UNPINNED,
+            claim_id=claim_id,
+            run_id=run_id,
+            theorem_name=theorem_name,
+            compile_ok=False,
+            exit_code=None,
+            timed_out=False,
+            stderr_tail=stderr[-500:],
+            axiom_list=[],
+            static_sorry_ok=True,
+            workspace_pinned=True,
+            candidate_path=str(candidate_path),
+            elapsed_ms=elapsed_ms,
+            outcome="BLOCKED",
+            reason_code=REASON_WORKSPACE_UNPINNED,
             detail={"error": stderr[-300:]},
         )
 
@@ -292,29 +335,56 @@ def verify_candidate(
 
     if exit_code != 0:
         return VerificationRecord(
-            claim_id=claim_id, run_id=run_id, theorem_name=theorem_name,
-            compile_ok=False, exit_code=exit_code, timed_out=False,
-            stderr_tail=stderr[-800:], axiom_list=axiom_list, static_sorry_ok=True,
-            workspace_pinned=True, candidate_path=str(candidate_path), elapsed_ms=elapsed_ms,
-            outcome="FAILED", reason_code=REASON_LEAN_SYNTAX_ERROR,
+            claim_id=claim_id,
+            run_id=run_id,
+            theorem_name=theorem_name,
+            compile_ok=False,
+            exit_code=exit_code,
+            timed_out=False,
+            stderr_tail=stderr[-800:],
+            axiom_list=axiom_list,
+            static_sorry_ok=True,
+            workspace_pinned=True,
+            candidate_path=str(candidate_path),
+            elapsed_ms=elapsed_ms,
+            outcome="FAILED",
+            reason_code=REASON_LEAN_SYNTAX_ERROR,
             detail={"exit_code": exit_code},
         )
     if theorem_name not in axioms_by_name:
         return VerificationRecord(
-            claim_id=claim_id, run_id=run_id, theorem_name=theorem_name,
-            compile_ok=True, exit_code=0, timed_out=False,
-            stderr_tail=stderr[-300:], axiom_list=[], static_sorry_ok=True,
-            workspace_pinned=True, candidate_path=str(candidate_path), elapsed_ms=elapsed_ms,
-            outcome="FAILED", reason_code=REASON_LEAN_SYNTAX_ERROR,
+            claim_id=claim_id,
+            run_id=run_id,
+            theorem_name=theorem_name,
+            compile_ok=True,
+            exit_code=0,
+            timed_out=False,
+            stderr_tail=stderr[-300:],
+            axiom_list=[],
+            static_sorry_ok=True,
+            workspace_pinned=True,
+            candidate_path=str(candidate_path),
+            elapsed_ms=elapsed_ms,
+            outcome="FAILED",
+            reason_code=REASON_LEAN_SYNTAX_ERROR,
             detail={"error": f"#print axioms did not report theorem '{theorem_name}'"},
         )
     if "sorryAx" in axiom_list:
         return VerificationRecord(
-            claim_id=claim_id, run_id=run_id, theorem_name=theorem_name,
-            compile_ok=True, exit_code=0, timed_out=False,
-            stderr_tail=stderr[-300:], axiom_list=axiom_list, static_sorry_ok=True,
-            workspace_pinned=True, candidate_path=str(candidate_path), elapsed_ms=elapsed_ms,
-            outcome="FAILED", reason_code=REASON_SORRY_FOUND,
+            claim_id=claim_id,
+            run_id=run_id,
+            theorem_name=theorem_name,
+            compile_ok=True,
+            exit_code=0,
+            timed_out=False,
+            stderr_tail=stderr[-300:],
+            axiom_list=axiom_list,
+            static_sorry_ok=True,
+            workspace_pinned=True,
+            candidate_path=str(candidate_path),
+            elapsed_ms=elapsed_ms,
+            outcome="FAILED",
+            reason_code=REASON_SORRY_FOUND,
             detail={"marker": "sorryAx (kernel-level audit)"},
         )
 
@@ -325,18 +395,37 @@ def verify_candidate(
 
     if unapproved:
         return VerificationRecord(
-            claim_id=claim_id, run_id=run_id, theorem_name=theorem_name,
-            compile_ok=True, exit_code=0, timed_out=False,
-            stderr_tail=stderr[-300:], axiom_list=axiom_list, static_sorry_ok=True,
-            workspace_pinned=True, candidate_path=str(candidate_path), elapsed_ms=elapsed_ms,
-            outcome="FAILED", reason_code=REASON_AXIOM_VIOLATION,
+            claim_id=claim_id,
+            run_id=run_id,
+            theorem_name=theorem_name,
+            compile_ok=True,
+            exit_code=0,
+            timed_out=False,
+            stderr_tail=stderr[-300:],
+            axiom_list=axiom_list,
+            static_sorry_ok=True,
+            workspace_pinned=True,
+            candidate_path=str(candidate_path),
+            elapsed_ms=elapsed_ms,
+            outcome="FAILED",
+            reason_code=REASON_AXIOM_VIOLATION,
             detail={"unapproved_axioms": unapproved},
         )
 
     return VerificationRecord(
-        claim_id=claim_id, run_id=run_id, theorem_name=theorem_name,
-        compile_ok=True, exit_code=0, timed_out=False,
-        stderr_tail=stderr[-300:], axiom_list=axiom_list, static_sorry_ok=True,
-        workspace_pinned=True, candidate_path=str(candidate_path), elapsed_ms=elapsed_ms,
-        outcome="VERIFIED", reason_code=None, detail={},
+        claim_id=claim_id,
+        run_id=run_id,
+        theorem_name=theorem_name,
+        compile_ok=True,
+        exit_code=0,
+        timed_out=False,
+        stderr_tail=stderr[-300:],
+        axiom_list=axiom_list,
+        static_sorry_ok=True,
+        workspace_pinned=True,
+        candidate_path=str(candidate_path),
+        elapsed_ms=elapsed_ms,
+        outcome="VERIFIED",
+        reason_code=None,
+        detail={},
     )

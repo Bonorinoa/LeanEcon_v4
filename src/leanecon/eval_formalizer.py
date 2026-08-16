@@ -20,14 +20,14 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from leanecon.formalization import CORE_IDENTIFIER_RE, vacuity_warning
 
 
-def static_reject_class(problems: list[str] | None) -> Optional[str]:
+def static_reject_class(problems: list[str] | None) -> str | None:
     """Classify the first audit problem into a histogram bucket."""
     if not problems:
         return None
@@ -51,20 +51,21 @@ def _attempt_audit_clean(item: dict) -> bool:
     return not list(item.get("static_problems") or [])
 
 
-def _d1_core_fq(case: dict) -> Optional[bool]:
+def _d1_core_fq(case: dict) -> bool | None:
     report = case.get("mapping_report")
     if not isinstance(report, list) or not report:
         return None
     core_rows = [
-        row for row in report
-        if isinstance(row, dict) and row.get("mapping_kind") == "core"
+        row for row in report if isinstance(row, dict) and row.get("mapping_kind") == "core"
     ]
     if not core_rows:
         return None
-    return all(bool(CORE_IDENTIFIER_RE.match(row.get("lean_identifier") or "")) for row in core_rows)
+    return all(
+        bool(CORE_IDENTIFIER_RE.match(row.get("lean_identifier") or "")) for row in core_rows
+    )
 
 
-def _inversion_flag(statement: Optional[str]) -> bool:
+def _inversion_flag(statement: str | None) -> bool:
     """Cheap heuristic: conclusion restates a hypothesis (same as vacuity)."""
     if not statement:
         return False
@@ -89,14 +90,14 @@ def _sole_author_verified(case: dict) -> bool:
     return True
 
 
-def _attempts_to_valid(history: list[dict]) -> Optional[int]:
+def _attempts_to_valid(history: list[dict]) -> int | None:
     for index, item in enumerate(history, start=1):
         if _attempt_audit_clean(item):
             return index
     return None
 
 
-def _draft_complete(case: dict, first_clean_item: Optional[dict]) -> bool:
+def _draft_complete(case: dict, first_clean_item: dict | None) -> bool:
     if first_clean_item is None:
         return False
     statement = case.get("statement_text") or first_clean_item.get("draft") or ""
@@ -161,7 +162,7 @@ def score_fixture_dir(root: Path | str) -> dict[str, Any]:
         if klass:
             histogram[klass] = histogram.get(klass, 0) + 1
     return {
-        "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "n": n,
         "provider_calls": 0,
         "first_try_valid_rate": (first_try / n) if n else 0.0,
@@ -172,8 +173,10 @@ def score_fixture_dir(root: Path | str) -> dict[str, Any]:
     }
 
 
-def main(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Score committed formalizer fixtures (no provider).")
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Score committed formalizer fixtures (no provider)."
+    )
     parser.add_argument("--fixtures", required=True, help="directory of fixture JSON files")
     parser.add_argument("--json-out", default="", help="write the report JSON here")
     parser.add_argument("--md-out", default="", help="optional markdown table")

@@ -30,7 +30,9 @@ def test_missing_row_is_a_gap():
     ei = valid_ei()
     report = [row for row in complete_mapping_report() if row["ei_element_id"] != "conclusion"]
     problems, gaps = validate_mapping_report(report, ei)
-    assert any(g["ei_element_id"] == "conclusion" and g["ei_element_kind"] == "conclusion" for g in gaps)
+    assert any(
+        g["ei_element_id"] == "conclusion" and g["ei_element_kind"] == "conclusion" for g in gaps
+    )
 
 
 def test_unmapped_material_element_is_a_visible_gap():
@@ -60,9 +62,9 @@ def test_invalid_status_rejected():
 def test_parse_formalize_response_requires_keys():
     import json
 
-    parsed = parse_formalize_response(json.dumps(
-        {"statement": "theorem t : True", "target_theorem": "t", "mapping_report": []}
-    ))
+    parsed = parse_formalize_response(
+        json.dumps({"statement": "theorem t : True", "target_theorem": "t", "mapping_report": []})
+    )
     assert parsed["target_theorem"] == "t"
     for bad in (
         json.dumps({"statement": "x"}),
@@ -142,10 +144,24 @@ def test_classify_gaps_distinguishes_id_deviation():
     from leanecon.formalization import classify_gaps
 
     report = [
-        {"ei_element_id": "object:u", "ei_element_kind": "object", "status": "mapped",
-         "lean_identifier": "u", "mapping_kind": "mathlib", "provenance": "t", "note": ""},
-        {"ei_element_id": "conclusion", "ei_element_kind": "conclusion", "status": "mapped",
-         "lean_identifier": "P", "mapping_kind": "mathlib", "provenance": "t", "note": ""},
+        {
+            "ei_element_id": "object:u",
+            "ei_element_kind": "object",
+            "status": "mapped",
+            "lean_identifier": "u",
+            "mapping_kind": "mathlib",
+            "provenance": "t",
+            "note": "",
+        },
+        {
+            "ei_element_id": "conclusion",
+            "ei_element_kind": "conclusion",
+            "status": "mapped",
+            "lean_identifier": "P",
+            "mapping_kind": "mathlib",
+            "provenance": "t",
+            "note": "",
+        },
     ]
     gaps = [
         {"ei_element_id": "u", "ei_element_kind": "object", "reason": "missing mapping row"},
@@ -153,8 +169,8 @@ def test_classify_gaps_distinguishes_id_deviation():
     ]
     classified = classify_gaps(gaps, report)
     by_id = {g["ei_element_id"]: g for g in classified}
-    assert by_id["u"]["classification"] == "id_scheme_deviation"   # 'object:u' covers 'u'
-    assert by_id["x"]["classification"] == "genuinely_missing"     # no row mentions 'x'
+    assert by_id["u"]["classification"] == "id_scheme_deviation"  # 'object:u' covers 'u'
+    assert by_id["x"]["classification"] == "genuinely_missing"  # no row mentions 'x'
 
 
 # ---------------------------------------------------------------------------
@@ -168,8 +184,11 @@ def test_core_mapping_kind_accepted_with_fully_qualified_identifier():
     passes validation (the enum gains `core`; FQ id resolves as written)."""
     ei = valid_ei()
     report = complete_mapping_report()
-    report[0] = {**report[0], "mapping_kind": "core",
-                 "lean_identifier": "LeanEcon.Core.Choice.attainableSet"}
+    report[0] = {
+        **report[0],
+        "mapping_kind": "core",
+        "lean_identifier": "LeanEcon.Core.Choice.attainableSet",
+    }
     problems, gaps = validate_mapping_report(report, ei)
     assert problems == []
     assert gaps == []
@@ -188,7 +207,11 @@ def test_core_row_without_area_component_flagged():
     skeleton requires an Area (declarations live at LeanEcon.Core.<Area>.<name>)."""
     ei = valid_ei()
     report = complete_mapping_report()
-    report[0] = {**report[0], "mapping_kind": "core", "lean_identifier": "LeanEcon.Core.attainableSet"}
+    report[0] = {
+        **report[0],
+        "mapping_kind": "core",
+        "lean_identifier": "LeanEcon.Core.attainableSet",
+    }
     problems, _ = validate_mapping_report(report, ei)
     assert any("fully-qualified" in p for p in problems)
 
@@ -206,8 +229,11 @@ def test_core_row_with_deep_namespace_identifier_accepted():
     """Nested future namespaces (e.g. Gate 7 Equilibrium.Competitive) satisfy D1."""
     ei = valid_ei()
     report = complete_mapping_report()
-    report[0] = {**report[0], "mapping_kind": "core",
-                 "lean_identifier": "LeanEcon.Core.Equilibrium.Competitive.marketClearing"}
+    report[0] = {
+        **report[0],
+        "mapping_kind": "core",
+        "lean_identifier": "LeanEcon.Core.Equilibrium.Competitive.marketClearing",
+    }
     problems, _ = validate_mapping_report(report, ei)
     assert problems == []
 
@@ -229,7 +255,9 @@ def test_scaffolding_root_namespace_flagged():
     problems = validate_scaffolding_namespace("abbrev Bundle := ℝ\n\ntheorem t : True")
     assert any("root-namespace" in p for p in problems)
 
-    problems = validate_scaffolding_namespace("def budgetSet (p : ℝ) (m : ℝ) : Set ℝ := {x | p * x ≤ m}\n\ntheorem t : True")
+    problems = validate_scaffolding_namespace(
+        "def budgetSet (p : ℝ) (m : ℝ) : Set ℝ := {x | p * x ≤ m}\n\ntheorem t : True"
+    )
     assert any("root-namespace" in p for p in problems)
 
 
@@ -251,7 +279,12 @@ def test_scaffolding_theorem_never_flagged():
 
     # the target theorem is not scaffolding; plain signatures pass
     assert validate_scaffolding_namespace("theorem t {α : Type} [Fintype α] : True") == []
-    assert validate_scaffolding_namespace("import Mathlib\nimport LeanEcon.Core.Constraints\n\ntheorem t : True") == []
+    assert (
+        validate_scaffolding_namespace(
+            "import Mathlib\nimport LeanEcon.Core.Constraints\n\ntheorem t : True"
+        )
+        == []
+    )
 
 
 def test_scaffolding_depth_tracking():
