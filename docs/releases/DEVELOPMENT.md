@@ -9,13 +9,13 @@ This worktree is a **development build**, not a LeanEcon release.
 | Package version | `3.0.0.dev0` |
 | Builder identity | `leanecon-a3-3.0.0.dev0` |
 | Latest supported release | `v2.0.0` on `main` |
-| Current development line | constrained auto-formalization (loop + scorer + skeleton) |
+| Current development line | v3 Verifiable State Machine (narrowed); v4 = wire intelligence |
 
-`v3.0.0` is deliberately untagged. Its original draft-complete target
-was missed on the frozen evaluation splits (2/8 = 25%), so no
-document, package metadata, or verification bundle may present this
-development line as an earned release. See `docs/v3/V3_NOT_EARNED.md`
-and `docs/eval/v3-claim-split.md`.
+`v3.0.0` is deliberately untagged. The original draft-complete target
+was missed (combined **2/13 ≈ 15%**). The CTO narrowed the promise to
+**Verifiable State Machine** (DECISION_LOG 46). This file still forbids
+advertising a final `3.0.0` until the matching tag exists. See
+`docs/releases/v3.0.0.md` and `docs/v3/V3_NOT_EARNED.md`.
 
 ## Release rule
 

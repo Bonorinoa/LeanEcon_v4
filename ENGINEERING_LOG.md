@@ -199,4 +199,7 @@ and must be resolved before any release-labeled work.
 - Predictions first: `docs/eval/v3-stabilize-expectations.md`.
 - 2026-08-16 v3h3 sealed holdout (one pass): draft_complete **0/5**,
   first_try **1/5**, sole-author **0**. Set spent. Tag still parked.
+- 2026-08-16 CTO narrowed v3 to **Verifiable State Machine**
+  (DECLOG 46) and locked v4 direction as wiring intelligence
+  (`docs/v4/INIT_V4.md`, DECLOG 47). No tag. No v4 implementation.
 

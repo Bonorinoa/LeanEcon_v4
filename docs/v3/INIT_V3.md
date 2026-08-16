@@ -1,10 +1,10 @@
 # INIT_V3 — proposed v2→v3 roadmap (Phoenix → constrained auto-formalize)
 
-**Status:** Phase 0 **approved as proposed** 2026-08-12. Phases 1–3
-**implemented** on branch `v3/phase1-wire-loop`; Phase 4 skipped;
-60–70% **MISSED** (2/8). Package is `3.0.0.dev0` — not a tag promise.
-No PR / merge / tag until the CTO authorizes. Empty `clarify`
-is still not consent.
+**Status:** Phase 0–3 implemented; Phase 4 skipped; 60–70% **MISSED**
+(2/13). CTO **narrowed** the v3 promise 2026-08-16 to **Verifiable
+State Machine** (`docs/releases/v3.0.0.md`). Package `3.0.0.dev0`.
+v4 direction: `docs/v4/INIT_V4.md`. No tag / PR / v4 code from this
+file. Empty `clarify` is still not consent.
 **Base:** `main` @ `9c12936` = tag `v2.0.0` Phoenix, package `2.0.0`,
 pytest **176**, remote **main-only**.
 **Authority this does not override:** `docs/gate3/DECISION_LOG.md`

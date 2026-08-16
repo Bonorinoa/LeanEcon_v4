@@ -43,10 +43,18 @@ libraries. Live `formalize` now runs the bounded revision loop
 (`a3 skeleton`); unresolved gaps cannot reach `verify`.
 Interpretation (`mistral-medium-3-5`) and formalization (`labs-leanstral-1-5`)
 run live; `--from-file` is reviewer recovery when the formalizer is not
-statement-faithful. The 60–70% “model drafts the first stretch” target is
-the **v3 measurement goal**, not a result this tree claims.
+statement-faithful.
 
-### Explicit non-claims (v2)
+### v3 promise (Verifiable State Machine — narrowed)
+
+The product is the **audited claim lifecycle**, not model draft quality.
+Live `formalize` is a bounded state-machine transition; `skeleton` cannot
+reach `verify` with gaps; `VERIFIED` stays kernel- and bundle-gated.
+Draft-complete on frozen holdouts is **2/13 ≈ 15%** and is **not** a
+v3 claim. Wiring intelligence into those transitions is **v4**
+(`docs/v4/INIT_V4.md`).
+
+### Explicit non-claims (v2 / v3)
 
 - No autonomous / unattended `VERIFIED`; no production SLA
 - Formalizer is not statement-faithful (live first-try valid 0/3 on v2p1)
@@ -90,7 +98,7 @@ the **v3 measurement goal**, not a result this tree claims.
 | **v0.3** eval skeleton | ✅ shipped |
 | **v1.0.0** supported verified workflow | ✅ shipped |
 | **v2.0.0 Phoenix** assist foundation | ✅ shipped on `main` — AI reviewer exercised; `revise_loop` + `skeleton` were libraries at tag |
-| **v3 development** (unreleased `3.0.0.dev0`) | loop live; fixture scorer + CI; `skeleton` CLI; sealed eval protocol; 60–70% **MISSED** (2/8). Not tagged |
+| **v3 Verifiable State Machine** (unreleased `3.0.0.dev0`) | lifecycle is the product; loop + scorer + skeleton + sealed eval. 60–70% **narrowed off** (2/13). Tag pending |
 
 Evidence packets: `docs/releases/`. Decision log: `docs/gate3/DECISION_LOG.md`.
 
