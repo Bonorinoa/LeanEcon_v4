@@ -197,4 +197,6 @@ and must be resolved before any release-labeled work.
 - README no longer claims `pyproject.toml` is the shipped v2 package.
 - DECISION_LOG 41–45 recorded as branch-local; tag still pending.
 - Predictions first: `docs/eval/v3-stabilize-expectations.md`.
+- 2026-08-16 v3h3 sealed holdout (one pass): draft_complete **0/5**,
+  first_try **1/5**, sole-author **0**. Set spent. Tag still parked.
 

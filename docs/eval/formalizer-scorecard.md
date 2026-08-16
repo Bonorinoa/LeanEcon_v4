@@ -95,6 +95,23 @@ Probe amendment (METRICS §3.1 operationalization): bare signatures can
 never compile as `theorem` (Lean requires a body); probe rewrites to
 `axiom` to measure signature elaboration. Kernel audit untouched.
 
+## v3h3 sealed holdout (2026-08-16 — one pass, then spent)
+
+Protocol `formalizer-sealed-1`. n=5. Texts not in the repo
+(`docs/eval/v3h3-manifest.json`). Predictions first:
+`docs/eval/v3h3-expectations.md`.
+
+| Claim | Attempts | Outcome | first_try | probe | draft_complete |
+|---|---|---|---|---|---|
+| v3h3-A | 3 | FAILED | no | n/a | no |
+| v3h3-B | 3 | FORMALIZED | no | FALSE | no |
+| v3h3-C | 3 | FORMALIZED | yes | FALSE | no |
+| v3h3-D | 3 | FAILED | no | n/a | no |
+| v3h3-E | 3 | FORMALIZED | no | FALSE | no |
+
+first_try **1/5**, draft_complete **0/5**, sole_author **0**.
+**Verdict: MISSED** (need 3/5). Combined with v3h+v3h2: 2/13 ≈ 15%.
+
 ## v3 Phase 1 (2026-08-13 — loop wired + live same-text set)
 
 `a3_runner.formalize_claim` calls `revise_statement_draft`

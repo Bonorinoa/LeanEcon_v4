@@ -1,0 +1,27 @@
+{
+  "cases": [
+    {
+      "case_id": "v3h3-A",
+      "claim_digest": "d1b00851bae2c9dd98c9b190f015ea59bca72b73011965d446dd93208d6e6561"
+    },
+    {
+      "case_id": "v3h3-B",
+      "claim_digest": "9843351e004b9f263d52f14285cc8990de9e3f113f413715f7188901375c829a"
+    },
+    {
+      "case_id": "v3h3-C",
+      "claim_digest": "9eb008347b08c6585e64dcaebd171ccc473158fd8bf0f56d5b53bec765fba2a0"
+    },
+    {
+      "case_id": "v3h3-D",
+      "claim_digest": "2ad280c12bb85d3d8c16af8f913442e7dd0ca13df1e688eb9aca637327713a1e"
+    },
+    {
+      "case_id": "v3h3-E",
+      "claim_digest": "fa9250819508a8887db383710a13558a029b106a41ece2cab5bca3f3bfca0572"
+    }
+  ],
+  "protocol_id": "formalizer-sealed-1",
+  "schema_version": "1.0.0",
+  "split": "held_out"
+}

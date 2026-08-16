@@ -1,9 +1,8 @@
 # v3.0.0 — verdict MISSED (do not tag)
 
-**Status:** held-out scored 2026-08-13. 60–70% **NOT met**. **Do not
-tag.** Package on this branch is `3.0.0.dev0`. INIT_V3 Phase 5 earn
-rule is not met (verdict must be met, or a CTO-approved narrowed
-promise; this is neither until the CTO says so).
+**Status:** held-out scored 2026-08-13 (v3h+v3h2) and 2026-08-16
+(v3h3 sealed). 60–70% **NOT met**. **Do not tag.** Package on this
+branch is `3.0.0.dev0`. INIT_V3 Phase 5 earn rule is not met.
 
 ## Held-out numbers (frozen split, final pipeline)
 
@@ -19,6 +18,12 @@ promise; this is neither until the CTO says so).
 - sole_author_verified **0%**; 60–70% **MISSED**
 - Probe instrument amended (axiom-wrap) — measurement fix, documented
   in METRICS §3.1; no prompt was tuned to the held-out set.
+
+### v3h3 (sealed, 2026-08-16) — n=5, spent
+
+draft_complete **0/5**, first_try **1/5** (C only), sole-author **0**.
+Need 3/5. **MISSED.** Combined with v3h+v3h2: **2/13 ≈ 15%**.
+Manifest: `docs/eval/v3h3-manifest.json`. Do not re-run.
 
 ## Why the branch exists
 

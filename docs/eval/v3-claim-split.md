@@ -82,4 +82,25 @@ CTO remains the sole semantic approver.
 - Next holdout uses `docs/eval/sealed-protocol.md` (`formalizer-sealed-1`).
   Do not invent a product v4 from that protocol id.
 
+## Held-out 3 — v3h3-A..E (sealed 2026-08-16)
+
+Frozen before the live run. Texts are **not** in this repository.
+Manifest: `docs/eval/v3h3-manifest.json` (case_id + SHA-256 only).
+Owner copy: `artifacts/local/v3h3-owner.md` (gitignored).
+Predictions: `docs/eval/v3h3-expectations.md`.
+
+| id | Attempts | Outcome | first_try | probe | draft_complete |
+|---|---|---|---|---|---|
+| v3h3-A | 3 | FAILED, no artifact | no | n/a | no |
+| v3h3-B | 3 | FORMALIZED | no | FALSE | no |
+| v3h3-C | 3 | FORMALIZED | **yes** | FALSE | no |
+| v3h3-D | 3 | FAILED, no artifact | no | n/a | no |
+| v3h3-E | 3 | FORMALIZED | no | FALSE | no |
+
+- first_try_valid **1/5**; draft_complete **0/5 = 0%**; sole_author **0**
+- 60–70% (need 3/5) **MISSED**
+- This set is **spent**. Do not re-formalize for tuning.
+
+**Attribution:** Hermes Agent (Nous Research) under CTO direction.
+
 **Attribution:** Hermes Agent (Nous Research) under CTO direction.
