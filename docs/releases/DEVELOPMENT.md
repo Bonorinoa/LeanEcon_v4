@@ -2,20 +2,21 @@
 
 ## Current state
 
-This worktree is a **development build**, not a LeanEcon release.
+This worktree is the **v3.0.0 release** (Verifiable State Machine).
 
 | Item | Value |
 |---|---|
-| Package version | `3.0.0.dev0` |
-| Builder identity | `leanecon-a3-3.0.0.dev0` |
-| Latest supported release | `v2.0.0` on `main` |
-| Current development line | v3 Verifiable State Machine (narrowed); v4 = wire intelligence |
+| Package version | `3.0.0` |
+| Builder identity | `leanecon-a3-3.0.0` |
+| Release | `v3.0.0` (tagged on main) |
+| Next development line | v4 intelligence (elaboration-class lever; `docs/v4/INIT_V4.md`) |
 
-`v3.0.0` is deliberately untagged. The original draft-complete target
-was missed (combined **2/13 ≈ 15%**). The CTO narrowed the promise to
-**Verifiable State Machine** (DECISION_LOG 46). This file still forbids
-advertising a final `3.0.0` until the matching tag exists. See
-`docs/releases/v3.0.0.md` and `docs/v3/V3_NOT_EARNED.md`.
+The original draft-complete target was missed (2/13 ≈ 15%) and was
+narrowed out of the v3 promise (DECISION_LOG 46). v4h1 measured
+audit-clean 5/5 after the mechanical repair lever (DECISION_LOG 48);
+probe/elaboration rate is to be re-measured on a fresh sealed set
+(v4h1 is spent; its probe numbers were invalidated by a wrap bug,
+fixed in `verifier.py` 2026-08-17).
 
 ## Release rule
 
@@ -29,7 +30,8 @@ following are true:
 
 Development versions must use a PEP 440 prerelease suffix such as
 `.devN` and must continue to name the latest supported release in
-this document.
+this document. The next line of development (v4) must revert this
+file to `3.0.1.dev0` or similar before its first commit.
 
 `scripts/check_release_state.py` enforces (1), (2), and this file.
 It does not authorize a tag.

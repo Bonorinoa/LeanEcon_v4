@@ -8,7 +8,21 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_current_development_state_is_truthful():
-    assert check_release_state(REPO_ROOT, head_tags=set()) == []
+    """The live tree must be self-consistent. On a tagged release HEAD the
+    check passes as-is; on an untagged tree it must report exactly the
+    missing-tag error (never silently pass)."""
+    import subprocess
+
+    result = subprocess.run(
+        ["git", "tag", "--points-at", "HEAD"],
+        cwd=REPO_ROOT, capture_output=True, text=True,
+    )
+    tags = {t for t in result.stdout.splitlines() if t}
+    errors = check_release_state(REPO_ROOT)
+    if "v3.0.0" in tags:
+        assert errors == []
+    else:
+        assert errors == ["final version 3.0.0 must be tagged v3.0.0 at HEAD"]
 
 
 def test_final_release_requires_matching_head_tag(tmp_path):

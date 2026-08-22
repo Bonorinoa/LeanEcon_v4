@@ -9,6 +9,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # check_release_state requires the release tag to point at HEAD;
+          # default checkout does not fetch tags.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
