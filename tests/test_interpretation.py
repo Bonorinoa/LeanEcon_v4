@@ -66,8 +66,9 @@ def test_schema_additive_none_noted_exercise():
 def test_finalize_requires_acknowledgement_for_none_noted():
     with pytest.raises(ValueError):
         finalize_ei(valid_ei(none_noted=True), reviewer="cto", event_ref="evt-1")
-    finalized = finalize_ei(valid_ei(none_noted=True), reviewer="cto", event_ref="evt-1",
-                            acknowledges_none_noted=True)
+    finalized = finalize_ei(
+        valid_ei(none_noted=True), reviewer="cto", event_ref="evt-1", acknowledges_none_noted=True
+    )
     assert finalized["review"]["decision"] == "APPROVED"
     assert finalized["review"]["acknowledges_none_noted"] is True
     assert finalized["digest"]

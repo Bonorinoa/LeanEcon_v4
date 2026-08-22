@@ -5,14 +5,13 @@ gracefully when the toolchain is unavailable (CI without Lean), matching the
 A1 probe test convention.
 """
 
-import shutil
 from pathlib import Path
 
 import pytest
 
 from leanecon import verifier
 from leanecon.lean_probe import check_sorry_free
-from tests.conftest import FIXTURES, WORKSPACE, elan_on_path  # noqa: F401
+from tests.conftest import FIXTURES, WORKSPACE
 
 
 def workspace_ready() -> bool:
@@ -55,8 +54,9 @@ def test_fixture_without_axiom_record_is_axiom_violation(elan_on_path):
     """First-run honesty: no axiom approval record yet -> AXIOM_VIOLATION,
     with the surfaced axiom list in the detail (the reviewer then approves)."""
     source = (FIXTURES / "c4_monotone_order.lean").read_text(encoding="utf-8")
-    record = verifier.verify_candidate(WORKSPACE, source, "leanecon_c4_monotone_order",
-                                       run_id="test-run-clean", claim_id="test-c4")
+    record = verifier.verify_candidate(
+        WORKSPACE, source, "leanecon_c4_monotone_order", run_id="test-run-clean", claim_id="test-c4"
+    )
     assert record.outcome == "FAILED", record.detail
     assert record.reason_code == "AXIOM_VIOLATION"
     assert set(record.axiom_list) == STD_AXIOMS
@@ -67,9 +67,14 @@ def test_fixture_without_axiom_record_is_axiom_violation(elan_on_path):
 @requires_workspace
 def test_fixture_with_approved_axioms_verifies(elan_on_path):
     source = (FIXTURES / "c4_monotone_order.lean").read_text(encoding="utf-8")
-    record = verifier.verify_candidate(WORKSPACE, source, "leanecon_c4_monotone_order",
-                                       run_id="test-run-ok", claim_id="test-c4-ok",
-                                       approved_axioms=STD_AXIOMS)
+    record = verifier.verify_candidate(
+        WORKSPACE,
+        source,
+        "leanecon_c4_monotone_order",
+        run_id="test-run-ok",
+        claim_id="test-c4-ok",
+        approved_axioms=STD_AXIOMS,
+    )
     assert record.outcome == "VERIFIED", record.detail
     assert record.reason_code is None
     assert "sorryAx" not in record.axiom_list
@@ -82,8 +87,9 @@ def test_unapproved_axiom_fails_axiom_violation(elan_on_path):
         "axiom my_test_axiom : 1 = 1\n"
         "theorem leanecon_test_uses_axiom : 1 = 1 := my_test_axiom\n"
     )
-    record = verifier.verify_candidate(WORKSPACE, source, "leanecon_test_uses_axiom",
-                                       run_id="test-run-ax", claim_id="test-ax")
+    record = verifier.verify_candidate(
+        WORKSPACE, source, "leanecon_test_uses_axiom", run_id="test-run-ax", claim_id="test-ax"
+    )
     assert record.outcome == "FAILED"
     assert record.reason_code == "AXIOM_VIOLATION"
     assert "my_test_axiom" in record.detail.get("unapproved_axioms", [])
@@ -96,17 +102,24 @@ def test_approved_axiom_passes(elan_on_path):
         "axiom my_approved_axiom : 1 = 1\n"
         "theorem leanecon_test_approved_axiom : 1 = 1 := my_approved_axiom\n"
     )
-    record = verifier.verify_candidate(WORKSPACE, source, "leanecon_test_approved_axiom",
-                                       run_id="test-run-axok", claim_id="test-axok",
-                                       approved_axioms=frozenset({"my_approved_axiom", "propext",
-                                                                  "Classical.choice", "Quot.sound"}))
+    record = verifier.verify_candidate(
+        WORKSPACE,
+        source,
+        "leanecon_test_approved_axiom",
+        run_id="test-run-axok",
+        claim_id="test-axok",
+        approved_axioms=frozenset(
+            {"my_approved_axiom", "propext", "Classical.choice", "Quot.sound"}
+        ),
+    )
     assert record.outcome == "VERIFIED", record.detail
 
 
 @requires_workspace
 def test_syntax_error_is_failed(elan_on_path):
-    record = verifier.verify_candidate(WORKSPACE, "def broken : Nat :=", "broken",
-                                       run_id="test-run-syn", claim_id="test-syn")
+    record = verifier.verify_candidate(
+        WORKSPACE, "def broken : Nat :=", "broken", run_id="test-run-syn", claim_id="test-syn"
+    )
     assert record.outcome == "FAILED"
     assert record.reason_code == "LEAN_SYNTAX_ERROR"
 
@@ -117,8 +130,9 @@ def test_kernel_level_sorry_detection(elan_on_path, monkeypatch):
     source = "import Mathlib.Data.Real.Basic\ntheorem leanecon_test_sorry : 1 = 1 := by sorry\n"
     # force the static scan to pass so the kernel-level layer is exercised
     monkeypatch.setattr(verifier, "check_sorry_free", lambda src: _healthy())
-    record = verifier.verify_candidate(WORKSPACE, source, "leanecon_test_sorry",
-                                       run_id="test-run-sorry", claim_id="test-sorry")
+    record = verifier.verify_candidate(
+        WORKSPACE, source, "leanecon_test_sorry", run_id="test-run-sorry", claim_id="test-sorry"
+    )
     assert record.outcome == "FAILED"
     assert record.reason_code == "SORRY_FOUND"
     assert "sorryAx" in record.axiom_list
@@ -127,8 +141,9 @@ def test_kernel_level_sorry_detection(elan_on_path, monkeypatch):
 @requires_workspace
 def test_static_sorry_scan_is_first_layer():
     source = "theorem t : 1 = 1 := by sorry\n"
-    record = verifier.verify_candidate(WORKSPACE, source, "t",
-                                       run_id="test-run-static", claim_id="test-static")
+    record = verifier.verify_candidate(
+        WORKSPACE, source, "t", run_id="test-run-static", claim_id="test-static"
+    )
     assert record.outcome == "FAILED"
     assert record.reason_code == "SORRY_FOUND"
 
@@ -142,29 +157,46 @@ def test_static_sorry_scan_ignores_comments():
         "-- the rejected candidate used an incomplete-proof placeholder\n"
         "theorem leanecon_comment_scan : True := by trivial\n"
     )
-    record = verifier.verify_candidate(WORKSPACE, source, "leanecon_comment_scan",
-                                       run_id="test-run-comment", claim_id="test-comment")
+    record = verifier.verify_candidate(
+        WORKSPACE,
+        source,
+        "leanecon_comment_scan",
+        run_id="test-run-comment",
+        claim_id="test-comment",
+    )
     assert record.outcome != "FAILED" or record.reason_code != "SORRY_FOUND", record.detail
 
 
 def test_timeout_is_failed_proof_timeout(monkeypatch, tmp_path):
     (tmp_path / "lean-toolchain").write_text("leanprover/lean4:v4.32.2\n")
-    (tmp_path / "lakefile.lean").write_text('import Lake\nrequire "leanprover-community" / "mathlib" @ git "v4.32.2"\n')
+    (tmp_path / "lakefile.lean").write_text(
+        'import Lake\nrequire "leanprover-community" / "mathlib" @ git "v4.32.2"\n'
+    )
 
     def fake_run(workspace, source, timeout_s):
         return None, "", "lake env lean timed out", True
 
     monkeypatch.setattr(verifier, "run_lake_env_lean", fake_run)
-    record = verifier.verify_candidate(tmp_path, "theorem t : True := by trivial", "t",
-                                       run_id="test-run-timeout", claim_id="test-timeout",
-                                       timeout_s=1)
+    record = verifier.verify_candidate(
+        tmp_path,
+        "theorem t : True := by trivial",
+        "t",
+        run_id="test-run-timeout",
+        claim_id="test-timeout",
+        timeout_s=1,
+    )
     assert record.outcome == "FAILED"
     assert record.reason_code == "PROOF_TIMEOUT"
 
 
 def test_unpinned_workspace_is_blocked(tmp_path):
-    record = verifier.verify_candidate(tmp_path, "theorem t : True := by trivial", "t",
-                                       run_id="test-run-unpin", claim_id="test-unpin")
+    record = verifier.verify_candidate(
+        tmp_path,
+        "theorem t : True := by trivial",
+        "t",
+        run_id="test-run-unpin",
+        claim_id="test-unpin",
+    )
     assert record.outcome == "BLOCKED"
     assert record.reason_code == "WORKSPACE_UNPINNED"
 
@@ -176,25 +208,81 @@ def test_probe_statement_compiles_real_workspace(elan_on_path):
     statement (the walkthrough's `[Set α]` binder) reports False."""
     ok = verifier.probe_statement_compiles(WORKSPACE, "theorem probe_ok : True := by trivial")
     assert ok["compiles"] is True
-    broken = verifier.probe_statement_compiles(WORKSPACE, "theorem probe_bad {α : Type} [Set α] : True := by trivial")
+    broken = verifier.probe_statement_compiles(
+        WORKSPACE, "theorem probe_bad {α : Type} [Set α] : True := by trivial"
+    )
     assert broken["compiles"] is False
     assert broken["exit_code"] not in (None, 0)
 
 
+def test_probe_stderr_tail_includes_stdout_when_stderr_empty(monkeypatch, tmp_path):
+    """Lean prints errors on stdout; an empty-stderr exit 1 must still surface them."""
+    (tmp_path / "lean-toolchain").write_text("leanprover/lean4:v4.32.2\n")
+    (tmp_path / "lakefile.lean").write_text("import Lake\n")
+    monkeypatch.setattr(
+        verifier,
+        "run_lake_env_lean",
+        lambda *a, **k: (1, "unknown identifier Foo", "", False),
+    )
+    result = verifier.probe_statement_compiles(tmp_path, "theorem t : True")
+    assert result["compiles"] is False
+    assert "unknown identifier Foo" in result["stderr_tail"]
+
+
+def test_axiom_wrap_transforms_signature():
+    """Signature-only output is the contract; Lean forbids a body-less theorem,
+    so the probe rewrites `theorem` to `axiom` to measure whether the SIGNATURE
+    elaborates (METRICS draft_complete operationalization)."""
+    wrapped = verifier._axiom_wrap_signature("theorem t (p : ℝ) : p ≤ p")
+    assert wrapped.startswith("axiom t (p : ℝ) : p ≤ p")
+    # multi-declaration / body-carrying statements are left untouched (fallback)
+    assert (
+        verifier._axiom_wrap_signature("theorem t : True := by trivial")
+        == "theorem t : True := by trivial"
+    )
+
+
+def test_axiom_wrap_keeps_import_lines():
+    stmt = "import LeanEcon.Core.Equilibrium\n\ntheorem t (p : ℝ) : p ≤ p"
+    wrapped = verifier._axiom_wrap_signature(stmt)
+    assert wrapped.startswith("import LeanEcon.Core.Equilibrium")
+    assert "axiom t (p : ℝ) : p ≤ p" in wrapped
+
+
+@requires_workspace
+def test_axiom_wrap_probe_compiles_bare_signature(elan_on_path):
+    """The bare signature that previously never compiled (expected ':=') now
+    elaborates as an axiom; a genuinely ill-typed signature still fails."""
+    ok = verifier.probe_statement_compiles(
+        WORKSPACE, "theorem budget_weak (p p' : ℝ) : p ≤ p' → p ≤ p'"
+    )
+    assert ok["compiles"] is True
+    bad = verifier.probe_statement_compiles(WORKSPACE, "theorem t {α : Type} [Set α] : True")
+    assert bad["compiles"] is False
+
+
 def test_lake_missing_is_blocked(tmp_path, monkeypatch):
     (tmp_path / "lean-toolchain").write_text("leanprover/lean4:v4.32.2\n")
-    (tmp_path / "lakefile.lean").write_text('import Lake\nrequire "leanprover-community" / "mathlib" @ git "v4.32.2"\n')
+    (tmp_path / "lakefile.lean").write_text(
+        'import Lake\nrequire "leanprover-community" / "mathlib" @ git "v4.32.2"\n'
+    )
     monkeypatch.setattr(verifier.shutil, "which", lambda name: None)
-    record = verifier.verify_candidate(tmp_path, "theorem t : True := by trivial", "t",
-                                       run_id="test-run-nolake", claim_id="test-nolake")
+    record = verifier.verify_candidate(
+        tmp_path,
+        "theorem t : True := by trivial",
+        "t",
+        run_id="test-run-nolake",
+        claim_id="test-nolake",
+    )
     assert record.outcome == "BLOCKED"
     assert record.reason_code == "WORKSPACE_UNPINNED"
 
 
 def test_claim_id_path_traversal_is_sanitized():
     """CLI-supplied claim/run ids must not escape the candidate dir."""
-    record = verifier.verify_candidate(WORKSPACE, "theorem t : True := by trivial", "t",
-                                       run_id="../../escape", claim_id="../evil")
+    record = verifier.verify_candidate(
+        WORKSPACE, "theorem t : True := by trivial", "t", run_id="../../escape", claim_id="../evil"
+    )
     # the record carries the candidate path; it must stay inside the workspace
     candidate = Path(record.candidate_path)
     assert ".a3-candidates" in candidate.parts
@@ -210,12 +298,14 @@ def test_wrong_theorem_in_proof_is_failed_with_bundle_path(elan_on_path):
     axiom query (#print axioms <target>) fails compilation because the
     target was never declared — an honest compile-level failure that the
     bundle builder can attach to."""
-    source = (
-        "import Mathlib.Data.Real.Basic\n"
-        "theorem some_other_theorem : 1 = 1 := by rfl\n"
+    source = "import Mathlib.Data.Real.Basic\ntheorem some_other_theorem : 1 = 1 := by rfl\n"
+    record = verifier.verify_candidate(
+        WORKSPACE,
+        source,
+        "leanecon_target_never_declared",
+        run_id="test-run-wrongthm",
+        claim_id="test-wrongthm",
     )
-    record = verifier.verify_candidate(WORKSPACE, source, "leanecon_target_never_declared",
-                                       run_id="test-run-wrongthm", claim_id="test-wrongthm")
     assert record.outcome == "FAILED"
     assert record.reason_code == "LEAN_SYNTAX_ERROR"
     assert record.candidate_path  # bundle-attachable failure record
@@ -223,7 +313,6 @@ def test_wrong_theorem_in_proof_is_failed_with_bundle_path(elan_on_path):
 
 def _healthy():
     from leanecon.events import CapabilityStatus
-
     from leanecon.lean_probe import ProbeResult
 
     return ProbeResult(capability="sorry_check", status=CapabilityStatus.HEALTHY, detail={})

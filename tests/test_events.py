@@ -7,10 +7,10 @@ import pytest
 from leanecon.events import (
     EVENT_CLAIM_STATE_CHANGED,
     EVENT_HEALTH_CHECK,
-    Event,
-    EventLog,
     REASON_CODES,
     CapabilityStatus,
+    Event,
+    EventLog,
     validate_event,
 )
 

@@ -15,13 +15,13 @@ from __future__ import annotations
 import json
 import os
 import time
-from typing import Any, Callable, Optional
+from collections.abc import Callable
 
 import httpx
 
 from leanecon.events import (
-    CapabilityStatus,
     EVENT_PROVIDER_REQUEST_BLOCKED,
+    CapabilityStatus,
     Event,
 )
 from leanecon.providers import (
@@ -99,9 +99,9 @@ class MistralAdapter(ProviderAdapter):
 
     def __init__(
         self,
-        policy_evaluate: Optional[Callable] = None,
-        emit_event: Optional[Callable] = None,
-        transport: Optional[Callable] = None,
+        policy_evaluate: Callable | None = None,
+        emit_event: Callable | None = None,
+        transport: Callable | None = None,
         api_key_env: str = CREDENTIAL_ENV_NAME,
         max_attempts: int = 2,
         timeout_s: float = 60.0,
@@ -130,21 +130,24 @@ class MistralAdapter(ProviderAdapter):
     def _invoke(self, capability, model, payload, decision, run_id) -> ProviderResponse:
         api_key = self._load_credential()
         request = self._build_request(capability, model, payload)
-        raw: Optional[dict] = None
+        raw: dict | None = None
         started = time.monotonic()
         for attempt in range(1, self.max_attempts + 1):
             try:
                 raw = self._transport(request, api_key, self.timeout_s)
                 break
             except ProviderFailure as failure:
-                if failure.kind is ProviderFailureKind.INVALID_OUTPUT or attempt >= self.max_attempts:
+                if (
+                    failure.kind is ProviderFailureKind.INVALID_OUTPUT
+                    or attempt >= self.max_attempts
+                ):
                     raise ProviderFailure(
                         failure.kind,
                         failure.message,
                         attempts=attempt,
                         provider=self.provider_name,
                     ) from failure
-                time.sleep(min(2.0 ** attempt, 8.0))
+                time.sleep(min(2.0**attempt, 8.0))
         if raw is None:
             raise ProviderFailure(
                 ProviderFailureKind.UNAVAILABLE,
@@ -203,7 +206,9 @@ class MistralAdapter(ProviderAdapter):
         note = None
         if decision.redaction_report:
             status = CapabilityStatus.DEGRADED
-            note = f"payload redacted before transmission: {len(decision.redaction_report)} field(s)"
+            note = (
+                f"payload redacted before transmission: {len(decision.redaction_report)} field(s)"
+            )
         return ProviderResponse(
             capability=capability,
             status=status,

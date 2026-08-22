@@ -13,7 +13,6 @@ from leanecon.events import CapabilityStatus
 from leanecon.lean_probe import (
     check_sorry_free,
     probe_invalid_lean,
-    probe_lsp,
     probe_workspace,
     read_workspace_identity,
 )

@@ -47,7 +47,9 @@ def normalize_reviewer_kind(kind: str | None, reviewer_id: str) -> ReviewerKind:
         return infer_reviewer_kind(reviewer_id)
     k = str(kind).strip().lower()
     if k not in REVIEWER_KINDS:
-        raise ValueError(f"reviewer_kind must be one of {sorted(REVIEWER_KINDS)} or auto, got {kind!r}")
+        raise ValueError(
+            f"reviewer_kind must be one of {sorted(REVIEWER_KINDS)} or auto, got {kind!r}"
+        )
     return k  # type: ignore[return-value]
 
 

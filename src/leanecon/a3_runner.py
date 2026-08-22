@@ -8,6 +8,7 @@ Subcommands (the CTO-facing surface):
   interpret     run interpretation (live) -> INTERPRETED -> REVIEW_REQUIRED
   review        reviewer decision: approve | reject  (ACCEPTED | REJECTED)
   formalize     live formalization OR ``--from-file`` reviewer candidate
+  skeleton      store a proof-skeleton draft (unresolved gaps block verify)
   gap-ack       reviewer acknowledges mapping gaps (enables PROVING)
   axiom-approve reviewer approves the axiom list (per-run reviewer record)
   verify        proof input -> PROVING -> VERIFIED | FAILED | BLOCKED + bundle
@@ -30,11 +31,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-from leanecon import lean_probe
 from leanecon.adapters.mistral import MVP_MODEL_MAP, MistralAdapter
 from leanecon.bundle import build_bundle, validate_bundle
 from leanecon.claim_store import (
@@ -72,6 +71,8 @@ from leanecon.lifecycle import TERMINAL_STATES
 from leanecon.providers import Capability, ProviderAdapter, ProviderFailure
 from leanecon.repopath import find_repo_root
 from leanecon.reviewer_policy import resolve_reviewer
+from leanecon.revise_loop import Feedback, revise_statement_draft
+from leanecon.skeleton import validate_skeleton
 from leanecon.trace_replay import replay_claim, replay_run
 from leanecon.verifier import (
     REASON_SORRY_FOUND,
@@ -79,7 +80,7 @@ from leanecon.verifier import (
     verify_candidate,
 )
 
-BUILDER_IDENTITY = "leanecon-a3-2.0.0"
+BUILDER_IDENTITY = "leanecon-a3-3.0.0.dev0"
 
 REPO_ROOT = find_repo_root()
 WORKSPACE = REPO_ROOT / "lean_workspace"
@@ -108,12 +109,12 @@ def _state_event(
     log: EventLog,
     run_id: str,
     claim_id: str,
-    before: Optional[str],
+    before: str | None,
     after: str,
     actor: str,
     source_component: str,
     reason_codes: tuple = (),
-    detail: Optional[dict] = None,
+    detail: dict | None = None,
 ) -> Event:
     return _emit(
         log,
@@ -206,7 +207,9 @@ def cmd_ingest(args, store: ArtifactStore) -> int:
                 detail={"reason": "claim text contains sealed-gold/hidden-evaluation markers"},
             ),
         )
-        print(f"refused: claim text contains sealed-gold/hidden-evaluation markers (event in {log.path})")
+        print(
+            f"refused: claim text contains sealed-gold/hidden-evaluation markers (event in {log.path})"
+        )
         return 1
 
     if existing is not None:
@@ -221,12 +224,18 @@ def cmd_ingest(args, store: ArtifactStore) -> int:
         if not source_text:
             raise SystemExit("--claim-text required for a new claim")
 
-    claim = ClaimRecord(claim_id=claim_id, revision=revision, source_text=source_text, data_class=data_class)
+    claim = ClaimRecord(
+        claim_id=claim_id, revision=revision, source_text=source_text, data_class=data_class
+    )
     store.save_claim(claim)
     run_id, log = _new_run(args.events_dir)
-    _state_event(log, run_id, claim_id, None, "DRAFT", "system", "a3-ingest", detail={"revision": revision})
+    _state_event(
+        log, run_id, claim_id, None, "DRAFT", "system", "a3-ingest", detail={"revision": revision}
+    )
     print(f"claim {claim_id} r{revision} created: DRAFT")
-    print(f"  digest={store.read_json(store.claim_path(claim_id))['digest'][:16]}… class={data_class}")
+    print(
+        f"  digest={store.read_json(store.claim_path(claim_id))['digest'][:16]}… class={data_class}"
+    )
     print(f"  events={log.path}")
     return 0
 
@@ -256,7 +265,9 @@ def _make_adapter(run_id: str, log: EventLog) -> MistralAdapter:
     return MistralAdapter(emit_event=emit_blocked)
 
 
-def interpret_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run_id: str, adapter: ProviderAdapter) -> tuple[str, Optional[dict]]:
+def interpret_claim(
+    claim: ClaimRecord, store: ArtifactStore, log: EventLog, run_id: str, adapter: ProviderAdapter
+) -> tuple[str, dict | None]:
     """Run interpretation; returns (state_after, ei_candidate_or_None)."""
     claim_id = claim.claim_id
     try:
@@ -270,32 +281,84 @@ def interpret_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run
         )
     except ProviderFailure as failure:
         if failure.kind.value == "PROVIDER_UNAVAILABLE":
-            _state_event(log, run_id, claim_id, claim.state, "BLOCKED", "system", "a3-interpret",
-                         reason_codes=(failure.reason_code,), detail={"error": failure.message})
+            _state_event(
+                log,
+                run_id,
+                claim_id,
+                claim.state,
+                "BLOCKED",
+                "system",
+                "a3-interpret",
+                reason_codes=(failure.reason_code,),
+                detail={"error": failure.message},
+            )
             return "BLOCKED", None
-        _state_event(log, run_id, claim_id, claim.state, "FAILED", "system", "a3-interpret",
-                     reason_codes=(failure.reason_code,), detail={"error": failure.message})
+        _state_event(
+            log,
+            run_id,
+            claim_id,
+            claim.state,
+            "FAILED",
+            "system",
+            "a3-interpret",
+            reason_codes=(failure.reason_code,),
+            detail={"error": failure.message},
+        )
         return "FAILED", None
 
     content = (response.output or {}).get("content", "")
     try:
         candidate = parse_interpret_response(content)
     except ValueError as exc:
-        _state_event(log, run_id, claim_id, claim.state, "FAILED", "system", "a3-interpret",
-                     reason_codes=("PROVIDER_INVALID_OUTPUT",), detail={"error": str(exc)})
+        _state_event(
+            log,
+            run_id,
+            claim_id,
+            claim.state,
+            "FAILED",
+            "system",
+            "a3-interpret",
+            reason_codes=("PROVIDER_INVALID_OUTPUT",),
+            detail={"error": str(exc)},
+        )
         return "FAILED", None
 
     problems = validate_ei_candidate(candidate)
     if problems:
-        _state_event(log, run_id, claim_id, claim.state, "FAILED", "system", "a3-interpret",
-                     reason_codes=("PROVIDER_INVALID_OUTPUT",), detail={"validation_problems": problems[:5]})
+        _state_event(
+            log,
+            run_id,
+            claim_id,
+            claim.state,
+            "FAILED",
+            "system",
+            "a3-interpret",
+            reason_codes=("PROVIDER_INVALID_OUTPUT",),
+            detail={"validation_problems": problems[:5]},
+        )
         return "FAILED", None
 
     ei_artifact = store.write_ei(claim_id, candidate, status="draft")
-    _state_event(log, run_id, claim_id, claim.state, "INTERPRETED", "system", "a3-interpret",
-                 detail={"ei_rev": ei_artifact["revision"], "ei_digest": ei_artifact["digest"][:16]})
-    _state_event(log, run_id, claim_id, "INTERPRETED", "REVIEW_REQUIRED", "system", "a3-validate",
-                 detail={"ei_rev": ei_artifact["revision"]})
+    _state_event(
+        log,
+        run_id,
+        claim_id,
+        claim.state,
+        "INTERPRETED",
+        "system",
+        "a3-interpret",
+        detail={"ei_rev": ei_artifact["revision"], "ei_digest": ei_artifact["digest"][:16]},
+    )
+    _state_event(
+        log,
+        run_id,
+        claim_id,
+        "INTERPRETED",
+        "REVIEW_REQUIRED",
+        "system",
+        "a3-validate",
+        detail={"ei_rev": ei_artifact["revision"]},
+    )
     return "REVIEW_REQUIRED", candidate
 
 
@@ -308,11 +371,17 @@ def cmd_interpret(args, store: ArtifactStore) -> int:
     claim.state = state_after
     store.save_claim(claim)
     if candidate is not None:
-        print(f"claim {claim.claim_id}: INTERPRETED -> REVIEW_REQUIRED (ei digest {candidate.get('digest', 'n/a')[:16]})")
+        print(
+            f"claim {claim.claim_id}: INTERPRETED -> REVIEW_REQUIRED (ei digest {candidate.get('digest', 'n/a')[:16]})"
+        )
         print("  canonical:", (candidate.get("claim") or {}).get("canonical_text", "")[:120])
         print("  objects:", ", ".join(o.get("id", "?") for o in candidate.get("objects", [])[:8]))
         amb = candidate.get("ambiguities") or []
-        print(f"  ambiguities: {len(amb)}" if amb else "  ambiguities: none_noted (reviewer acknowledgement required)")
+        print(
+            f"  ambiguities: {len(amb)}"
+            if amb
+            else "  ambiguities: none_noted (reviewer acknowledgement required)"
+        )
         print("  conclusion:", (candidate.get("conclusion") or {}).get("text", "")[:120])
     else:
         print(f"claim {claim.claim_id}: {state_after} (see event log)")
@@ -336,16 +405,32 @@ def cmd_review(args, store: ArtifactStore) -> int:
 
     if args.decision == "approve":
         if none_noted and not acknowledges:
-            print("refused: interpretation found no ambiguity (none_noted) and the approval does not acknowledge it")
-            print("rerun with --acknowledge-none-noted to confirm the reviewer accepts 'no ambiguity noted'")
+            print(
+                "refused: interpretation found no ambiguity (none_noted) and the approval does not acknowledge it"
+            )
+            print(
+                "rerun with --acknowledge-none-noted to confirm the reviewer accepts 'no ambiguity noted'"
+            )
             return 1
         try:
-            finalized = finalize_ei(ei, reviewer, event_ref=f"evt-{run_id}", acknowledges_none_noted=acknowledges, notes=args.notes or "")
+            finalized = finalize_ei(
+                ei,
+                reviewer,
+                event_ref=f"evt-{run_id}",
+                acknowledges_none_noted=acknowledges,
+                notes=args.notes or "",
+            )
         except ValueError as exc:
             print(f"refused: {exc}")
             return 1
         event = _state_event(
-            log, run_id, claim.claim_id, claim.state, "ACCEPTED", reviewer, "a3-review",
+            log,
+            run_id,
+            claim.claim_id,
+            claim.state,
+            "ACCEPTED",
+            reviewer,
+            "a3-review",
             detail={
                 "ei_rev": ei.get("revision"),
                 "acknowledges_none_noted": acknowledges,
@@ -353,36 +438,61 @@ def cmd_review(args, store: ArtifactStore) -> int:
             },
         )
         accepted = store.write_ei(claim.claim_id, finalized, status="accepted")
-        store.write_review_record(claim.claim_id, "approval", {
-            "decision": "APPROVED", "reviewer": reviewer, "reviewer_kind": reviewer_kind,
-            "notes": args.notes or "",
-            "event_ref": event.event_id, "acknowledges_none_noted": acknowledges,
-            "ei_rev": accepted["revision"], "ei_digest": accepted["digest"],
-        })
+        store.write_review_record(
+            claim.claim_id,
+            "approval",
+            {
+                "decision": "APPROVED",
+                "reviewer": reviewer,
+                "reviewer_kind": reviewer_kind,
+                "notes": args.notes or "",
+                "event_ref": event.event_id,
+                "acknowledges_none_noted": acknowledges,
+                "ei_rev": accepted["revision"],
+                "ei_digest": accepted["digest"],
+            },
+        )
         store.supersede_formals_for(claim.claim_id, accepted["digest"])
         claim.state = "ACCEPTED"
         claim.accepted_ei_rev = accepted["revision"]
         store.save_claim(claim)
-        print(f"claim {claim.claim_id}: REVIEW_REQUIRED -> ACCEPTED (reviewer={reviewer}, kind={reviewer_kind})")
+        print(
+            f"claim {claim.claim_id}: REVIEW_REQUIRED -> ACCEPTED (reviewer={reviewer}, kind={reviewer_kind})"
+        )
         print(f"  accepted EI rev {accepted['revision']} digest {accepted['digest'][:16]}…")
-        print(f"  superseded downstream artifacts: any formalization not built on this EI digest")
+        print("  superseded downstream artifacts: any formalization not built on this EI digest")
         return 0
 
     if args.decision == "reject":
         reason = getattr(args, "reason", None) or "USER_REJECTED"
         event = _state_event(
-            log, run_id, claim.claim_id, claim.state, "REJECTED", reviewer, "a3-review",
+            log,
+            run_id,
+            claim.claim_id,
+            claim.state,
+            "REJECTED",
+            reviewer,
+            "a3-review",
             reason_codes=(reason,),
             detail={"notes": args.notes or "", "reviewer_kind": reviewer_kind},
         )
-        store.write_review_record(claim.claim_id, "approval", {
-            "decision": "REJECTED", "reviewer": reviewer, "reviewer_kind": reviewer_kind,
-            "notes": args.notes or "",
-            "event_ref": event.event_id, "reason_codes": [reason],
-        })
+        store.write_review_record(
+            claim.claim_id,
+            "approval",
+            {
+                "decision": "REJECTED",
+                "reviewer": reviewer,
+                "reviewer_kind": reviewer_kind,
+                "notes": args.notes or "",
+                "event_ref": event.event_id,
+                "reason_codes": [reason],
+            },
+        )
         claim.state = "REJECTED"
         store.save_claim(claim)
-        print(f"claim {claim.claim_id}: REVIEW_REQUIRED -> REJECTED ({reason}; kind={reviewer_kind})")
+        print(
+            f"claim {claim.claim_id}: REVIEW_REQUIRED -> REJECTED ({reason}; kind={reviewer_kind})"
+        )
         print("  revision is terminal; open a new revision with `ingest` to retry")
         return 0
 
@@ -394,68 +504,208 @@ def cmd_review(args, store: ArtifactStore) -> int:
 # ---------------------------------------------------------------------------
 
 
-def formalize_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run_id: str, adapter: ProviderAdapter, workspace_root: Path) -> tuple[str, Optional[dict]]:
+class _ProviderUnavailable(Exception):
+    """Break out of revise_loop when the provider is down (INIT_V3 D5)."""
+
+    def __init__(self, failure: ProviderFailure):
+        super().__init__(failure.message)
+        self.failure = failure
+
+
+def _feedback_as_dict(item: Feedback) -> dict:
+    return {
+        "draft": item.draft,
+        "static_problems": list(item.static_problems),
+        "probe_compiles": item.probe_compiles,
+        "probe_stderr": item.probe_stderr,
+    }
+
+
+def _revision_feedback_block(history: list[Feedback]) -> str:
+    """Verbatim prior Feedback for the next formalize prompt."""
+    lines = [
+        "Prior kernel/static feedback from earlier attempts in this formalize call.",
+        "Revise the statement. Do not repeat the same contract violations.",
+        "",
+    ]
+    for index, item in enumerate(history, start=1):
+        lines.append(f"Attempt {index}:")
+        lines.append(f"  draft: {item.draft}")
+        if item.static_problems:
+            lines.append("  static_problems:")
+            for problem in item.static_problems:
+                lines.append(f"    - {problem}")
+        if item.probe_stderr:
+            lines.append(f"  probe_stderr: {item.probe_stderr}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def formalize_claim(
+    claim: ClaimRecord,
+    store: ArtifactStore,
+    log: EventLog,
+    run_id: str,
+    adapter: ProviderAdapter,
+    workspace_root: Path,
+) -> tuple[str, dict | None]:
+    """Live formalize: bounded revise_loop, then existing store/lifecycle.
+
+    INIT_V3 D2: retry only while ``audit`` fails. An audit-clean statement is
+    FORMALIZED even if the compile probe fails. ``revise_loop.accepted``
+    (audit ∧ real probe) is not the FORMALIZED predicate — the loop probe
+    is a dummy so the harness exits on first audit-clean draft.
+    D5: PROVIDER_UNAVAILABLE → BLOCKED immediately (not an attempt).
+    """
     ei = store.read_ei(claim.claim_id, claim.accepted_ei_rev)
+    stash: dict[str, Any] = {"parsed": None, "response": None, "parse_error": None}
+    last_clean: dict[str, Any] = {"parsed": None, "response": None}
+
+    def draft_fn(history: list[Feedback]) -> str:
+        prompt = formalize_prompt(ei)
+        if history:
+            prompt = f"{prompt}\n\n{_revision_feedback_block(history)}"
+        try:
+            response = adapter.request(
+                capability=Capability.FORMALIZE,
+                model=MVP_MODEL_MAP[Capability.FORMALIZE].model,
+                typed_payload={"prompt": prompt},
+                declared_class=claim.data_class,
+                run_id=run_id,
+                claim_id=claim.claim_id,
+            )
+        except ProviderFailure as failure:
+            if failure.kind.value == "PROVIDER_UNAVAILABLE":
+                raise _ProviderUnavailable(failure) from failure
+            stash["parsed"] = None
+            stash["response"] = None
+            stash["parse_error"] = failure.message
+            return ""
+        try:
+            parsed = parse_formalize_response((response.output or {}).get("content", ""))
+        except ValueError as exc:
+            stash["parsed"] = None
+            stash["response"] = response
+            stash["parse_error"] = str(exc)
+            return (response.output or {}).get("content", "") or ""
+        stash["parsed"] = parsed
+        stash["response"] = response
+        stash["parse_error"] = None
+        return parsed["statement"]
+
+    def audit(stmt: str) -> list[str]:
+        if stash["parsed"] is None:
+            return [stash["parse_error"] or "formalize response could not be parsed"]
+        problems: list[str] = []
+        problems.extend(validate_statement_text(stmt))
+        problems.extend(validate_scaffolding_namespace(stmt))
+        mapping_problems, _gaps = validate_mapping_report(stash["parsed"]["mapping_report"], ei)
+        problems.extend(mapping_problems)
+        if not problems:
+            last_clean["parsed"] = stash["parsed"]
+            last_clean["response"] = stash["response"]
+        return problems
+
+    def loop_probe(stmt: str) -> tuple[bool, str]:
+        probe = probe_statement_compiles(workspace_root, stmt)
+        return bool(probe.get("compiles")), probe.get("stderr_tail") or ""
+
     try:
-        response = adapter.request(
-            capability=Capability.FORMALIZE,
-            model=MVP_MODEL_MAP[Capability.FORMALIZE].model,
-            typed_payload={"prompt": formalize_prompt(ei)},
-            declared_class=claim.data_class,
-            run_id=run_id,
-            claim_id=claim.claim_id,
+        outcome = revise_statement_draft(draft_fn, audit, loop_probe)
+    except _ProviderUnavailable as exc:
+        failure = exc.failure
+        _state_event(
+            log,
+            run_id,
+            claim.claim_id,
+            claim.state,
+            "BLOCKED",
+            "system",
+            "a3-formalize",
+            reason_codes=(failure.reason_code,),
+            detail={"error": failure.message},
         )
-    except ProviderFailure as failure:
-        if failure.kind.value == "PROVIDER_UNAVAILABLE":
-            _state_event(log, run_id, claim.claim_id, claim.state, "BLOCKED", "system", "a3-formalize",
-                         reason_codes=(failure.reason_code,), detail={"error": failure.message})
-            return "BLOCKED", None
-        _state_event(log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
-                     reason_codes=(failure.reason_code,), detail={"error": failure.message})
+        return "BLOCKED", None
+
+    history_payload = [_feedback_as_dict(item) for item in outcome.revision_history]
+    parsed = last_clean["parsed"]
+    response = last_clean["response"]
+
+    if parsed is None:
+        last_problems: list[str] = []
+        if outcome.revision_history:
+            last_problems = list(outcome.revision_history[-1].static_problems)
+        elif stash["parse_error"]:
+            last_problems = [stash["parse_error"]]
+        detail: dict[str, Any] = {
+            "attempts_used": outcome.attempts_used,
+            "revision_history": history_payload,
+        }
+        if last_problems:
+            # Keep the v1 keys so existing static-reject tests still see them.
+            if any("scaffolding" in p or "root-namespace" in p for p in last_problems):
+                detail["scaffolding_problems"] = last_problems[:5]
+            elif any("mapping" in p or "core mapping" in p for p in last_problems):
+                detail["mapping_problems"] = last_problems[:5]
+            elif stash["parsed"] is None and stash["parse_error"]:
+                detail["error"] = stash["parse_error"]
+            else:
+                detail["statement_problems"] = last_problems[:5]
+        _state_event(
+            log,
+            run_id,
+            claim.claim_id,
+            claim.state,
+            "FAILED",
+            "system",
+            "a3-formalize",
+            reason_codes=("PROVIDER_INVALID_OUTPUT",),
+            detail=detail,
+        )
         return "FAILED", None
 
-    try:
-        parsed = parse_formalize_response((response.output or {}).get("content", ""))
-    except ValueError as exc:
-        _state_event(log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
-                     reason_codes=("PROVIDER_INVALID_OUTPUT",), detail={"error": str(exc)})
+    # Audit-clean within budget → FORMALIZED. Probe is a signal (D2).
+    gaps_problems, gaps = validate_mapping_report(parsed["mapping_report"], ei)
+    if gaps_problems:
+        # Defensive: audit already ran mapping; this should be empty.
+        _state_event(
+            log,
+            run_id,
+            claim.claim_id,
+            claim.state,
+            "FAILED",
+            "system",
+            "a3-formalize",
+            reason_codes=("PROVIDER_INVALID_OUTPUT",),
+            detail={
+                "mapping_problems": gaps_problems[:5],
+                "attempts_used": outcome.attempts_used,
+                "revision_history": history_payload,
+            },
+        )
         return "FAILED", None
-
-    # Static statement contract (walkthrough hardening): sorry/admit and
-    # attached proof bodies are hard rejections — the candidate never reaches
-    # the store, and the failure is visible in the trace.
-    statement_problems = validate_statement_text(parsed["statement"])
-    if statement_problems:
-        _state_event(log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
-                     reason_codes=("PROVIDER_INVALID_OUTPUT",),
-                     detail={"statement_problems": statement_problems[:5]})
-        return "FAILED", None
-
-    # D4 (a3-core-design.md §4): A3-local scaffolding must be namespace-scoped.
-    # A root-namespace declaration in the candidate is a prompt violation of
-    # the same class as a proof body — rejected before the store.
-    scaffolding_problems = validate_scaffolding_namespace(parsed["statement"])
-    if scaffolding_problems:
-        _state_event(log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
-                     reason_codes=("PROVIDER_INVALID_OUTPUT",),
-                     detail={"scaffolding_problems": scaffolding_problems[:5]})
-        return "FAILED", None
-
-    problems, gaps = validate_mapping_report(parsed["mapping_report"], ei)
-    if problems:
-        _state_event(log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
-                     reason_codes=("PROVIDER_INVALID_OUTPUT",), detail={"mapping_problems": problems[:5]})
-        return "FAILED", None
-
-    # Classify gaps (id-scheme deviation vs genuinely missing) and probe the
-    # statement in the pinned workspace — both are evaluation signals for the
-    # reviewer, recorded in the formal artifact.
     gaps = classify_gaps(gaps, parsed["mapping_report"])
-    probe = probe_statement_compiles(workspace_root, parsed["statement"])
+    # The loop already probed the accepted draft; reuse that result instead of
+    # a third call. The accepted draft is the last AUDIT-CLEAN attempt (its
+    # feedback carries the probe result); later attempts may be static-rejects.
+    probed = [item for item in outcome.revision_history if item.probe_compiles is not None]
+    last_probed = probed[-1] if probed else None
+    if last_probed is not None:
+        probe = {
+            "compiles": bool(last_probed.probe_compiles),
+            "exit_code": 0 if last_probed.probe_compiles else 1,
+            "stderr_tail": last_probed.probe_stderr or "",
+        }
+    else:
+        probe = {"compiles": None, "exit_code": None, "stderr_tail": ""}
     vacuity = vacuity_warning(parsed["statement"])
-
-    imports = [line.split("import", 1)[1].strip() for line in parsed["statement"].splitlines()
-               if line.strip().startswith("import")]
+    imports = [
+        line.split("import", 1)[1].strip()
+        for line in parsed["statement"].splitlines()
+        if line.strip().startswith("import")
+    ]
+    model = response.metadata.model if response is not None else None
+    request_id = response.metadata.request_id if response is not None else None
     candidate = {
         "statement_text": parsed["statement"],
         "target_theorem": parsed["target_theorem"],
@@ -465,28 +715,46 @@ def formalize_claim(claim: ClaimRecord, store: ArtifactStore, log: EventLog, run
         "gaps": gaps,
         "statement_probe": probe,
         "vacuity_warning": vacuity,
-        "provenance": {"capability": "formalize", "model": response.metadata.model, "request_id": response.metadata.request_id},
+        "revision_attempts": outcome.attempts_used,
+        "revision_history": history_payload,
+        "provenance": {"capability": "formalize", "model": model, "request_id": request_id},
     }
     artifact = store.write_formal(claim.claim_id, candidate, status="current")
-    # The claim DID transition to FORMALIZED (candidate + mapping report exist)
-    # even when gaps are present — the state event must be emitted either way
-    # or the trace chain becomes inconsistent with the persisted state.
-    _state_event(log, run_id, claim.claim_id, claim.state, "FORMALIZED", "system", "a3-formalize",
-                 detail={"formal_rev": artifact["revision"], "target_theorem": parsed["target_theorem"],
-                         "gap_count": len(gaps), "statement_compiles": probe.get("compiles")})
+    _state_event(
+        log,
+        run_id,
+        claim.claim_id,
+        claim.state,
+        "FORMALIZED",
+        "system",
+        "a3-formalize",
+        detail={
+            "formal_rev": artifact["revision"],
+            "target_theorem": parsed["target_theorem"],
+            "gap_count": len(gaps),
+            "statement_compiles": probe.get("compiles"),
+            "revision_attempts": outcome.attempts_used,
+        },
+    )
     if gaps:
-        _emit(log, Event(
-            event_type=EVENT_DIAGNOSTIC_RESULT,
-            run_id=run_id,
-            claim_id=claim.claim_id,
-            source_component="a3-formalize",
-            actor="system",
-            payload_class="PROJECT",
-            trace_ref=f"claim:{claim.claim_id}",
-            detail={"event": "mapping_gaps", "gap_count": len(gaps),
-                    "gaps": [g["ei_element_id"] for g in gaps]},
-        ))
-        return "FORMALIZED", candidate  # stays FORMALIZED; PROVING blocked until gap-ack
+        _emit(
+            log,
+            Event(
+                event_type=EVENT_DIAGNOSTIC_RESULT,
+                run_id=run_id,
+                claim_id=claim.claim_id,
+                source_component="a3-formalize",
+                actor="system",
+                payload_class="PROJECT",
+                trace_ref=f"claim:{claim.claim_id}",
+                detail={
+                    "event": "mapping_gaps",
+                    "gap_count": len(gaps),
+                    "gaps": [g["ei_element_id"] for g in gaps],
+                },
+            ),
+        )
+        return "FORMALIZED", candidate
 
     return "FORMALIZED", candidate
 
@@ -532,8 +800,8 @@ def formalize_from_candidate(
     statement: str,
     target_theorem: str,
     mapping_report: list,
-    provenance: Optional[dict] = None,
-) -> tuple[str, Optional[dict]]:
+    provenance: dict | None = None,
+) -> tuple[str, dict | None]:
     """Validate and store a reviewer-authored formal candidate (no provider).
 
     Applies the same static contracts as the live formalizer path (statement,
@@ -543,7 +811,13 @@ def formalize_from_candidate(
     statement_problems = validate_statement_text(statement)
     if statement_problems:
         _state_event(
-            log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
+            log,
+            run_id,
+            claim.claim_id,
+            claim.state,
+            "FAILED",
+            "system",
+            "a3-formalize",
             reason_codes=("PROVIDER_INVALID_OUTPUT",),
             detail={"statement_problems": statement_problems[:5], "source": "from_file"},
         )
@@ -552,7 +826,13 @@ def formalize_from_candidate(
     scaffolding_problems = validate_scaffolding_namespace(statement)
     if scaffolding_problems:
         _state_event(
-            log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
+            log,
+            run_id,
+            claim.claim_id,
+            claim.state,
+            "FAILED",
+            "system",
+            "a3-formalize",
             reason_codes=("PROVIDER_INVALID_OUTPUT",),
             detail={"scaffolding_problems": scaffolding_problems[:5], "source": "from_file"},
         )
@@ -562,7 +842,13 @@ def formalize_from_candidate(
     problems, gaps = validate_mapping_report(mapping_report, ei)
     if problems:
         _state_event(
-            log, run_id, claim.claim_id, claim.state, "FAILED", "system", "a3-formalize",
+            log,
+            run_id,
+            claim.claim_id,
+            claim.state,
+            "FAILED",
+            "system",
+            "a3-formalize",
             reason_codes=("PROVIDER_INVALID_OUTPUT",),
             detail={"mapping_problems": problems[:5], "source": "from_file"},
         )
@@ -595,7 +881,13 @@ def formalize_from_candidate(
     }
     artifact = store.write_formal(claim.claim_id, candidate, status="current")
     _state_event(
-        log, run_id, claim.claim_id, claim.state, "FORMALIZED", "system", "a3-formalize",
+        log,
+        run_id,
+        claim.claim_id,
+        claim.state,
+        "FORMALIZED",
+        "system",
+        "a3-formalize",
         detail={
             "formal_rev": artifact["revision"],
             "target_theorem": target_theorem,
@@ -605,29 +897,40 @@ def formalize_from_candidate(
         },
     )
     if gaps:
-        _emit(log, Event(
-            event_type=EVENT_DIAGNOSTIC_RESULT,
-            run_id=run_id,
-            claim_id=claim.claim_id,
-            source_component="a3-formalize",
-            actor="system",
-            payload_class="PROJECT",
-            trace_ref=f"claim:{claim.claim_id}",
-            detail={"event": "mapping_gaps", "gap_count": len(gaps),
-                    "gaps": [g["ei_element_id"] for g in gaps], "source": "from_file"},
-        ))
+        _emit(
+            log,
+            Event(
+                event_type=EVENT_DIAGNOSTIC_RESULT,
+                run_id=run_id,
+                claim_id=claim.claim_id,
+                source_component="a3-formalize",
+                actor="system",
+                payload_class="PROJECT",
+                trace_ref=f"claim:{claim.claim_id}",
+                detail={
+                    "event": "mapping_gaps",
+                    "gap_count": len(gaps),
+                    "gaps": [g["ei_element_id"] for g in gaps],
+                    "source": "from_file",
+                },
+            ),
+        )
     return "FORMALIZED", candidate
 
 
-def _print_formalize_result(claim_id: str, state_after: str, candidate: Optional[dict]) -> None:
+def _print_formalize_result(claim_id: str, state_after: str, candidate: dict | None) -> None:
     if candidate is not None:
         gaps = candidate.get("gaps") or []
         probe = candidate.get("statement_probe") or {}
         source = (candidate.get("provenance") or {}).get("source", "live")
-        print(f"claim {claim_id}: FORMALIZED (target theorem {candidate['target_theorem']}; source={source})")
+        print(
+            f"claim {claim_id}: FORMALIZED (target theorem {candidate['target_theorem']}; source={source})"
+        )
         compiles = probe.get("compiles")
         if compiles is False:
-            print(f"  STATEMENT COMPILE PROBE: FAILED (exit {probe.get('exit_code')}) — see artifact stderr_tail")
+            print(
+                f"  STATEMENT COMPILE PROBE: FAILED (exit {probe.get('exit_code')}) — see artifact stderr_tail"
+            )
         elif compiles is True:
             print("  statement compiles in pinned workspace (kernel probe)")
         if candidate.get("vacuity_warning"):
@@ -636,7 +939,9 @@ def _print_formalize_result(claim_id: str, state_after: str, candidate: Optional
             print(f"  MAPPING GAPS ({len(gaps)}): PROVING blocked until reviewed")
             for gap in gaps:
                 tag = gap.get("classification", "missing mapping row")
-                print(f"    - {gap['ei_element_id']} ({gap['ei_element_kind']}): [{tag}] {gap.get('reason')}")
+                print(
+                    f"    - {gap['ei_element_id']} ({gap['ei_element_kind']}): [{tag}] {gap.get('reason')}"
+                )
             print("  resolve with: `a3 gap-ack --claim-id ... --reviewer <id>` or revise the claim")
         else:
             print("  mapping report complete: no gaps")
@@ -649,7 +954,8 @@ def cmd_formalize(args, store: ArtifactStore) -> int:
     if claim.state == "FORMALIZED" and not args.force:
         raise SystemExit(
             f"claim {claim.claim_id} is already FORMALIZED; use --force to re-formalize "
-            "(new formal revision, supersedes the current candidate)")
+            "(new formal revision, supersedes the current candidate)"
+        )
     # FAILED is legal here: a rejected candidate (PROVIDER_INVALID_OUTPUT)
     # leaves the claim FAILED — retry is the natural recovery path
     _claim_state_guard(claim, {"ACCEPTED", "BLOCKED", "FORMALIZED", "FAILED"}, "formalize")
@@ -667,7 +973,9 @@ def cmd_formalize(args, store: ArtifactStore) -> int:
             parsed = _load_formal_candidate_file(Path(from_file))
         else:
             if not statement_file or not mapping_file:
-                raise SystemExit("--statement-file and --mapping-file are required together (or use --from-file)")
+                raise SystemExit(
+                    "--statement-file and --mapping-file are required together (or use --from-file)"
+                )
             stmt_path = Path(statement_file)
             map_path = Path(mapping_file)
             if not stmt_path.exists():
@@ -692,7 +1000,11 @@ def cmd_formalize(args, store: ArtifactStore) -> int:
         if target_override:
             parsed["target_theorem"] = target_override
         state_after, candidate = formalize_from_candidate(
-            claim, store, log, run_id, WORKSPACE,
+            claim,
+            store,
+            log,
+            run_id,
+            WORKSPACE,
             statement=parsed["statement"],
             target_theorem=parsed["target_theorem"],
             mapping_report=parsed["mapping_report"],
@@ -728,18 +1040,38 @@ def cmd_gap_ack(args, store: ArtifactStore) -> int:
     if not gaps:
         print(f"claim {claim.claim_id}: no mapping gaps to acknowledge")
         return 0
-    store.write_review_record(claim.claim_id, "gap", {
-        "reviewer": reviewer, "reviewer_kind": reviewer_kind, "notes": args.notes or "",
-        "acknowledged_gap_ids": [g["ei_element_id"] for g in gaps],
-        "event_ref": f"evt-{run_id}", "formal_rev": formal.get("revision"),
-    })
-    _emit(log, Event(
-        event_type=EVENT_DIAGNOSTIC_RESULT,
-        run_id=run_id, claim_id=claim.claim_id, source_component="a3-review",
-        actor=reviewer, payload_class="PROJECT", trace_ref=f"claim:{claim.claim_id}",
-        detail={"event": "gaps_acknowledged", "gap_count": len(gaps), "reviewer_kind": reviewer_kind},
-    ))
-    print(f"claim {claim.claim_id}: {len(gaps)} gaps acknowledged by {reviewer} ({reviewer_kind}); PROVING now allowed")
+    store.write_review_record(
+        claim.claim_id,
+        "gap",
+        {
+            "reviewer": reviewer,
+            "reviewer_kind": reviewer_kind,
+            "notes": args.notes or "",
+            "acknowledged_gap_ids": [g["ei_element_id"] for g in gaps],
+            "event_ref": f"evt-{run_id}",
+            "formal_rev": formal.get("revision"),
+        },
+    )
+    _emit(
+        log,
+        Event(
+            event_type=EVENT_DIAGNOSTIC_RESULT,
+            run_id=run_id,
+            claim_id=claim.claim_id,
+            source_component="a3-review",
+            actor=reviewer,
+            payload_class="PROJECT",
+            trace_ref=f"claim:{claim.claim_id}",
+            detail={
+                "event": "gaps_acknowledged",
+                "gap_count": len(gaps),
+                "reviewer_kind": reviewer_kind,
+            },
+        ),
+    )
+    print(
+        f"claim {claim.claim_id}: {len(gaps)} gaps acknowledged by {reviewer} ({reviewer_kind}); PROVING now allowed"
+    )
     return 0
 
 
@@ -750,19 +1082,69 @@ def cmd_axiom_approve(args, store: ArtifactStore) -> int:
     axioms = [a.strip() for a in args.axioms.split(",") if a.strip()]
     if not axioms:
         raise SystemExit("--axioms required (comma-separated list)")
-    record = store.write_review_record(claim.claim_id, "axiom", {
-        "reviewer": reviewer, "reviewer_kind": reviewer_kind, "notes": args.notes or "",
-        "approved_axioms": axioms, "event_ref": f"evt-{run_id}",
-        "claim_revision": claim.revision,
-    })
-    _emit(log, Event(
-        event_type=EVENT_DIAGNOSTIC_RESULT,
-        run_id=run_id, claim_id=claim.claim_id, source_component="a3-review",
-        actor=reviewer, payload_class="PROJECT", trace_ref=f"claim:{claim.claim_id}",
-        detail={"event": "axiom_approval", "approved_axioms": axioms, "reviewer_kind": reviewer_kind},
-    ))
+    record = store.write_review_record(
+        claim.claim_id,
+        "axiom",
+        {
+            "reviewer": reviewer,
+            "reviewer_kind": reviewer_kind,
+            "notes": args.notes or "",
+            "approved_axioms": axioms,
+            "event_ref": f"evt-{run_id}",
+            "claim_revision": claim.revision,
+        },
+    )
+    _emit(
+        log,
+        Event(
+            event_type=EVENT_DIAGNOSTIC_RESULT,
+            run_id=run_id,
+            claim_id=claim.claim_id,
+            source_component="a3-review",
+            actor=reviewer,
+            payload_class="PROJECT",
+            trace_ref=f"claim:{claim.claim_id}",
+            detail={
+                "event": "axiom_approval",
+                "approved_axioms": axioms,
+                "reviewer_kind": reviewer_kind,
+            },
+        ),
+    )
     print(f"claim {claim.claim_id}: axiom review record written ({record['digest'][:16]}…)")
     print(f"  approved: {', '.join(axioms)} (reviewer={reviewer}, kind={reviewer_kind})")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# skeleton (v3 Phase 3 drafting assist)
+# ---------------------------------------------------------------------------
+
+
+def cmd_skeleton(args, store: ArtifactStore) -> int:
+    """Store a drafting skeleton. Does not change claim state. Unresolved gaps block verify."""
+    claim = store.load_claim(args.claim_id)
+    path = Path(args.file)
+    if not path.exists():
+        raise SystemExit(f"skeleton file not found: {path}")
+    text = path.read_text(encoding="utf-8")
+    parsed = validate_skeleton(text)
+    store.write_skeleton(
+        claim.claim_id,
+        {
+            "text": text,
+            "has_unresolved_gaps": parsed.has_unresolved_gaps,
+            "problems": list(parsed.problems),
+            "gap_names": [s.name for s in parsed.gaps],
+            "provenance": {"source": "skeleton", "path": str(path)},
+        },
+    )
+    print(
+        f"claim {claim.claim_id}: skeleton stored (unresolved_gaps="
+        f"{parsed.has_unresolved_gaps}, problems={len(parsed.problems)})"
+    )
+    if parsed.has_unresolved_gaps:
+        print("  verify is refused until gaps are refined or the skeleton is replaced")
     return 0
 
 
@@ -780,7 +1162,17 @@ def cmd_verify(args, store: ArtifactStore) -> int:
 
     formal = store.read_formal(claim.claim_id, claim.formal_rev)
     if formal.get("gaps") and not store.list_review_records(claim.claim_id, "gap"):
-        raise SystemExit(f"claim {claim.claim_id}: mapping gaps unacknowledged — PROVING refused (run gap-ack first)")
+        raise SystemExit(
+            f"claim {claim.claim_id}: mapping gaps unacknowledged — PROVING refused (run gap-ack first)"
+        )
+
+    if store.skeleton_revs(claim.claim_id):
+        skeleton = store.read_skeleton(claim.claim_id)
+        if skeleton.get("has_unresolved_gaps"):
+            raise SystemExit(
+                f"claim {claim.claim_id}: unresolved skeleton gaps — verify refused "
+                "(refine the skeleton or drop it; -- GAP: never reaches the kernel)"
+            )
 
     proof_path = Path(args.proof)
     if not proof_path.exists():
@@ -789,10 +1181,20 @@ def cmd_verify(args, store: ArtifactStore) -> int:
 
     target = formal.get("target_theorem", "")
     if not target:
-        raise SystemExit(f"claim {claim.claim_id}: formalization has no target theorem; run formalize first")
+        raise SystemExit(
+            f"claim {claim.claim_id}: formalization has no target theorem; run formalize first"
+        )
 
-    _state_event(log, run_id, claim.claim_id, claim.state, "PROVING", "system", "a3-verify",
-                 detail={"target_theorem": target, "proof": str(proof_path)})
+    _state_event(
+        log,
+        run_id,
+        claim.claim_id,
+        claim.state,
+        "PROVING",
+        "system",
+        "a3-verify",
+        detail={"target_theorem": target, "proof": str(proof_path)},
+    )
 
     axiom_records = store.list_review_records(claim.claim_id, "axiom")
     approved = frozenset(axiom_records[-1].get("approved_axioms", [])) if axiom_records else None
@@ -808,21 +1210,36 @@ def cmd_verify(args, store: ArtifactStore) -> int:
     )
 
     # bundle inputs
-    approval = store.list_review_records(claim.claim_id, "approval")[-1] if store.list_review_records(claim.claim_id, "approval") else {}
+    approval = (
+        store.list_review_records(claim.claim_id, "approval")[-1]
+        if store.list_review_records(claim.claim_id, "approval")
+        else {}
+    )
     axiom_rec = axiom_records[-1] if axiom_records else None
     ws_probe = probe_workspace(WORKSPACE)
     snapshots = {"lean_workspace": ws_probe.status.value}
-    trace_refs = [f"claim:{claim.claim_id}", f"formal:{claim.claim_id}:r{formal.get('revision')}", f"run:{run_id}"]
+    trace_refs = [
+        f"claim:{claim.claim_id}",
+        f"formal:{claim.claim_id}:r{formal.get('revision')}",
+        f"run:{run_id}",
+    ]
 
     state_after = record.outcome  # VERIFIED | FAILED | BLOCKED
     reason_codes = (record.reason_code,) if record.reason_code else ()
 
     ei_artifact = store.read_ei(claim.claim_id, claim.accepted_ei_rev)
     bundle_id, bundle_path = build_bundle(
-        store=store, claim=claim, ei_artifact=ei_artifact, formal_artifact=formal,
-        proof_source=proof_source, verification=record.to_dict(),
-        approval_record=approval, axiom_record=axiom_rec, trace_refs=trace_refs,
-        capability_snapshots=snapshots, workspace_root=WORKSPACE,
+        store=store,
+        claim=claim,
+        ei_artifact=ei_artifact,
+        formal_artifact=formal,
+        proof_source=proof_source,
+        verification=record.to_dict(),
+        approval_record=approval,
+        axiom_record=axiom_rec,
+        trace_refs=trace_refs,
+        capability_snapshots=snapshots,
+        workspace_root=WORKSPACE,
         commands=[f"a3 verify --claim-id {claim.claim_id} --proof {args.proof}"],
         builder_identity=BUILDER_IDENTITY,
     )
@@ -839,28 +1256,46 @@ def cmd_verify(args, store: ArtifactStore) -> int:
         manifest["failure_reasons"] = ["bundle_validation_failed"]
         manifest["sanity_checks"]["bundle_failing_checks"] = failing
         (store.bundle_path(bundle_id) / "manifest.json").write_text(
-            json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
         reason_codes = ()
         print(f"  WARNING: kernel verified but bundle invalid: {failing} — state set to FAILED")
 
-    _emit(log, Event(
-        event_type=EVENT_VERIFICATION_COMPLETED,
-        run_id=run_id, claim_id=claim.claim_id, state_before="PROVING", state_after=state_after,
-        source_component="a3-verify", actor="verifier", reason_codes=reason_codes,
-        payload_class="PROJECT", trace_ref=bundle_id, detail={"theorem": target},
-    ))
+    _emit(
+        log,
+        Event(
+            event_type=EVENT_VERIFICATION_COMPLETED,
+            run_id=run_id,
+            claim_id=claim.claim_id,
+            state_before="PROVING",
+            state_after=state_after,
+            source_component="a3-verify",
+            actor="verifier",
+            reason_codes=reason_codes,
+            payload_class="PROJECT",
+            trace_ref=bundle_id,
+            detail={"theorem": target},
+        ),
+    )
 
     claim.state = state_after
     claim.current_bundle = bundle_id
     store.save_claim(claim)
 
-    print(f"claim {claim.claim_id}: PROVING -> {state_after}" + (f" ({record.reason_code})" if record.reason_code else ""))
+    print(
+        f"claim {claim.claim_id}: PROVING -> {state_after}"
+        + (f" ({record.reason_code})" if record.reason_code else "")
+    )
     print(f"  axioms used: {', '.join(record.axiom_list) or '(none)'}")
     if record.reason_code == REASON_SORRY_FOUND:
-        print("  SORRY_FOUND: incomplete proof placeholder detected — never acceptable for VERIFIED")
+        print(
+            "  SORRY_FOUND: incomplete proof placeholder detected — never acceptable for VERIFIED"
+        )
     if record.reason_code == "AXIOM_VIOLATION":
         print(f"  unapproved axioms: {', '.join(record.detail.get('unapproved_axioms', []))}")
-        print("  reviewer action: `a3 axiom-approve --claim-id ... --reviewer <id> --axioms <list>`, then verify again")
+        print(
+            "  reviewer action: `a3 axiom-approve --claim-id ... --reviewer <id> --axioms <list>`, then verify again"
+        )
     if record.compile_ok and not record.reason_code:
         checks = validate_bundle(store, bundle_id, claim)
         print(f"  bundle: {bundle_path}")
@@ -880,7 +1315,9 @@ def cmd_bundle(args, store: ArtifactStore) -> int:
         raise SystemExit(f"claim {claim.claim_id} has no bundle yet")
     checks = validate_bundle(store, claim.current_bundle, claim)
     ok = all(c[1] for c in checks)
-    print(f"bundle {claim.current_bundle}: {'VALID' if ok else 'INVALID'} ({len(checks)}-item checklist)")
+    print(
+        f"bundle {claim.current_bundle}: {'VALID' if ok else 'INVALID'} ({len(checks)}-item checklist)"
+    )
     for item, passed, detail in checks:
         print(f"  [{('x' if passed else ' ')}] {item}: {detail}")
     return 0 if ok else 1
@@ -900,11 +1337,15 @@ def cmd_replay(args, store: ArtifactStore) -> int:
 def cmd_status(args, store: ArtifactStore) -> int:
     claim = store.load_claim(args.claim_id)
     print(f"claim {claim.claim_id} r{claim.revision}: state={claim.state} class={claim.data_class}")
-    print(f"  accepted_ei_rev={claim.accepted_ei_rev} formal_rev={claim.formal_rev} bundle={claim.current_bundle}")
+    print(
+        f"  accepted_ei_rev={claim.accepted_ei_rev} formal_rev={claim.formal_rev} bundle={claim.current_bundle}"
+    )
     for kind in ("approval", "axiom", "gap"):
         records = store.list_review_records(claim.claim_id, kind)
         if records:
-            print(f"  {kind} records: {len(records)} (latest {records[-1].get('digest', '')[:16]}…)")
+            print(
+                f"  {kind} records: {len(records)} (latest {records[-1].get('digest', '')[:16]}…)"
+            )
     print(f"  claim digest: {store.read_json(store.claim_path(claim.claim_id))['digest'][:16]}…")
     return 0
 
@@ -915,15 +1356,26 @@ def cmd_status(args, store: ArtifactStore) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="leanecon-a3", description="LeanEcon v4 A3 minimal verified workflow")
-    parser.add_argument("--store", default=str(DEFAULT_ROOT), help="artifact store root (default artifacts/local/a3)")
+    parser = argparse.ArgumentParser(
+        prog="leanecon-a3", description="LeanEcon v4 A3 minimal verified workflow"
+    )
+    parser.add_argument(
+        "--store",
+        default=str(DEFAULT_ROOT),
+        help="artifact store root (default artifacts/local/a3)",
+    )
     parser.add_argument("--events-dir", default=str(EVENTS_DIR), help="event log directory")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("ingest", help="create a claim revision (DRAFT)")
     p.add_argument("--claim-id", required=True)
     p.add_argument("--claim-text", default="")
-    p.add_argument("--class", dest="claim_class", default="PROJECT", help="PUBLIC or PROJECT (RESTRICTED hard-denied)")
+    p.add_argument(
+        "--class",
+        dest="claim_class",
+        default="PROJECT",
+        help="PUBLIC or PROJECT (RESTRICTED hard-denied)",
+    )
     p.set_defaults(func=cmd_ingest)
 
     p = sub.add_parser("interpret", help="run interpretation (live provider call)")
@@ -934,9 +1386,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--claim-id", required=True)
     p.add_argument("--decision", required=True, choices=["approve", "reject"])
     p.add_argument("--reviewer", default="")
-    p.add_argument("--reviewer-kind", default="",
-                   help="human | ai | auto (default auto: infer from reviewer id)")
-    p.add_argument("--acknowledge-none-noted", action="store_true", help="required when EI found no ambiguity")
+    p.add_argument(
+        "--reviewer-kind",
+        default="",
+        help="human | ai | auto (default auto: infer from reviewer id)",
+    )
+    p.add_argument(
+        "--acknowledge-none-noted", action="store_true", help="required when EI found no ambiguity"
+    )
     p.add_argument("--reason", default="", help="reject reason code (default USER_REJECTED)")
     p.add_argument("--notes", default="")
     p.set_defaults(func=cmd_review)
@@ -946,27 +1403,53 @@ def build_parser() -> argparse.ArgumentParser:
         help="run formalization (live) or load a reviewer candidate via --from-file",
     )
     p.add_argument("--claim-id", required=True)
-    p.add_argument("--force", action="store_true",
-                   help="re-formalize an already-FORMALIZED claim (new formal revision)")
-    p.add_argument("--from-file", default="",
-                   help="reviewer-authored formal candidate JSON "
-                        "(statement|statement_text, target_theorem, mapping_report)")
-    p.add_argument("--statement-file", default="",
-                   help="Lean statement text file (use with --mapping-file)")
-    p.add_argument("--mapping-file", default="",
-                   help="mapping_report JSON list file (use with --statement-file)")
-    p.add_argument("--target-theorem", default="",
-                   help="override target theorem name (required if statement file has no name)")
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="re-formalize an already-FORMALIZED claim (new formal revision)",
+    )
+    p.add_argument(
+        "--from-file",
+        default="",
+        help="reviewer-authored formal candidate JSON "
+        "(statement|statement_text, target_theorem, mapping_report)",
+    )
+    p.add_argument(
+        "--statement-file", default="", help="Lean statement text file (use with --mapping-file)"
+    )
+    p.add_argument(
+        "--mapping-file",
+        default="",
+        help="mapping_report JSON list file (use with --statement-file)",
+    )
+    p.add_argument(
+        "--target-theorem",
+        default="",
+        help="override target theorem name (required if statement file has no name)",
+    )
     p.set_defaults(func=cmd_formalize)
 
-    p = sub.add_parser("gap-ack", help="reviewer acknowledges mapping gaps (per-run reviewer record)")
+    p = sub.add_parser(
+        "skeleton", help="store a proof-skeleton draft (never sent to verify if gaps remain)"
+    )
+    p.add_argument("--claim-id", required=True)
+    p.add_argument(
+        "--file", required=True, help="Lean skeleton text (have-chain with -- GAP: notes)"
+    )
+    p.set_defaults(func=cmd_skeleton)
+
+    p = sub.add_parser(
+        "gap-ack", help="reviewer acknowledges mapping gaps (per-run reviewer record)"
+    )
     p.add_argument("--claim-id", required=True)
     p.add_argument("--reviewer", default="")
     p.add_argument("--reviewer-kind", default="", help="human | ai | auto")
     p.add_argument("--notes", default="")
     p.set_defaults(func=cmd_gap_ack)
 
-    p = sub.add_parser("axiom-approve", help="reviewer approves the axiom list (per-run reviewer record)")
+    p = sub.add_parser(
+        "axiom-approve", help="reviewer approves the axiom list (per-run reviewer record)"
+    )
     p.add_argument("--claim-id", required=True)
     p.add_argument("--reviewer", default="")
     p.add_argument("--reviewer-kind", default="", help="human | ai | auto")

@@ -5,7 +5,9 @@ collaborator that takes English economic claims through reviewed interpretation,
 Lean 4 formalization, and kernel-checked verification — producing auditable
 traces and verification bundles rather than bare "compiles" claims.
 
-**Current release: v2.0.0 Phoenix** (package version in `pyproject.toml`).
+**Current supported release: v2.0.0 Phoenix** on `main`. This worktree
+is package `3.0.0.dev0` / builder `leanecon-a3-3.0.0.dev0` — a
+development line, not a tag. See `docs/releases/DEVELOPMENT.md`.
 
 ## Product thesis
 
@@ -36,17 +38,28 @@ versioned LeanEcon Core, with models used as drafting aids.
 ### v2 promise (Phoenix)
 
 The v1 workflow, plus measured AI-reviewer exercise and audit-gated assist
-*libraries* (bounded revision loop, proof-skeleton contract). Interpretation
-(`mistral-medium-3-5`) and formalization (`labs-leanstral-1-5`) run live;
-`--from-file` is reviewer recovery when the formalizer is not
-statement-faithful. The 60–70% “model drafts the first stretch” target is
-the **v3 measurement goal**, not a result this tag claims.
+libraries. Live `formalize` now runs the bounded revision loop
+(`leanecon.revise_loop`, budget 3). `skeleton` is a drafting CLI
+(`a3 skeleton`); unresolved gaps cannot reach `verify`.
+Interpretation (`mistral-medium-3-5`) and formalization (`labs-leanstral-1-5`)
+run live; `--from-file` is reviewer recovery when the formalizer is not
+statement-faithful.
 
-### Explicit non-claims (v2)
+### v3 promise (Verifiable State Machine — narrowed)
+
+The product is the **audited claim lifecycle**, not model draft quality.
+Live `formalize` is a bounded state-machine transition; `skeleton` cannot
+reach `verify` with gaps; `VERIFIED` stays kernel- and bundle-gated.
+Draft-complete on frozen holdouts is **2/13 ≈ 15%** and is **not** a
+v3 claim. Wiring intelligence into those transitions is **v4**
+(`docs/v4/INIT_V4.md`).
+
+### Explicit non-claims (v2 / v3)
 
 - No autonomous / unattended `VERIFIED`; no production SLA
 - Formalizer is not statement-faithful (live first-try valid 0/3 on v2p1)
-- Revision loop and skeleton are library modules, not CLI surface
+- `revise_loop` is on the live `formalize` path; `skeleton` is a
+  drafting CLI (`a3 skeleton`) that cannot reach `verify` with gaps
 - No B2 auto-prove; no agents, retrieval corpus, or game-theory Core
 - No graphs / embeddings / LaTeX ingest (v3 substrate)
 - No broad economics library (thin Core: micro/consumer + CE/FWT spine)
@@ -84,7 +97,8 @@ the **v3 measurement goal**, not a result this tag claims.
 | **v0.2** reviewer recovery + AI reviewer + ops | ✅ shipped |
 | **v0.3** eval skeleton | ✅ shipped |
 | **v1.0.0** supported verified workflow | ✅ shipped |
-| **v2.0.0 Phoenix** assist foundation | ✅ shipped — AI reviewer exercised; `revise_loop` + `skeleton` libraries; B2 spike tracked |
+| **v2.0.0 Phoenix** assist foundation | ✅ shipped on `main` — AI reviewer exercised; `revise_loop` + `skeleton` were libraries at tag |
+| **v3 Verifiable State Machine** (unreleased `3.0.0.dev0`) | lifecycle is the product; loop + scorer + skeleton + sealed eval. 60–70% **narrowed off** (2/13). Tag pending |
 
 Evidence packets: `docs/releases/`. Decision log: `docs/gate3/DECISION_LOG.md`.
 

@@ -1,7 +1,5 @@
 """Repo-root discovery tests (installed-run robustness)."""
 
-from pathlib import Path
-
 from leanecon import repopath
 
 

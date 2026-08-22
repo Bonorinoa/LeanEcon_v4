@@ -20,12 +20,11 @@ import argparse
 import json
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from leanecon import lean_probe
 from leanecon.adapters.mistral import MVP_MODEL_MAP, MistralAdapter
-from leanecon.data_policy import classify, evaluate
 from leanecon.events import (
     EVENT_DIAGNOSTIC_RESULT,
     EVENT_HEALTH_CHECK,
@@ -54,7 +53,7 @@ A1_GREEN_CRITERIA = {
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 class A1Run:
@@ -74,7 +73,9 @@ class A1Run:
             )
         )
 
-    def record(self, criterion: str, status: CapabilityStatus, detail: dict, reason_code: str | None = None):
+    def record(
+        self, criterion: str, status: CapabilityStatus, detail: dict, reason_code: str | None = None
+    ):
         event = Event(
             event_type=EVENT_DIAGNOSTIC_RESULT,
             run_id=self.run_id,
@@ -93,7 +94,9 @@ class A1Run:
             "run_id": self.run_id,
             "emitted_at": _now(),
             "criteria": self.results,
-            "all_green": all(r["status"] == CapabilityStatus.HEALTHY.value for r in self.results.values()),
+            "all_green": all(
+                r["status"] == CapabilityStatus.HEALTHY.value for r in self.results.values()
+            ),
         }
 
 
@@ -101,11 +104,31 @@ def probe_c1_c2_c3(run: A1Run) -> None:
     workspace = lean_probe.probe_workspace(WORKSPACE)
     if workspace.status is CapabilityStatus.HEALTHY:
         compile_probe = lean_probe.probe_lean_compile(WORKSPACE, target="LeanEcon.A1")
-        run.record("C1_pinned_lean_mathlib_build", compile_probe.status, compile_probe.detail, compile_probe.reason_code)
-        run.record("C2_lean_compiler_probe", compile_probe.status, {"target": "LeanEcon.A1"}, compile_probe.reason_code)
+        run.record(
+            "C1_pinned_lean_mathlib_build",
+            compile_probe.status,
+            compile_probe.detail,
+            compile_probe.reason_code,
+        )
+        run.record(
+            "C2_lean_compiler_probe",
+            compile_probe.status,
+            {"target": "LeanEcon.A1"},
+            compile_probe.reason_code,
+        )
     else:
-        run.record("C1_pinned_lean_mathlib_build", CapabilityStatus.UNAVAILABLE, workspace.detail, workspace.reason_code)
-        run.record("C2_lean_compiler_probe", CapabilityStatus.UNAVAILABLE, {"note": "workspace unpinned"}, workspace.reason_code)
+        run.record(
+            "C1_pinned_lean_mathlib_build",
+            CapabilityStatus.UNAVAILABLE,
+            workspace.detail,
+            workspace.reason_code,
+        )
+        run.record(
+            "C2_lean_compiler_probe",
+            CapabilityStatus.UNAVAILABLE,
+            {"note": "workspace unpinned"},
+            workspace.reason_code,
+        )
     lsp = lean_probe.probe_lsp(WORKSPACE)
     run.record("C3_lsp_probe", lsp.status, lsp.detail, lsp.reason_code)
 
@@ -142,7 +165,7 @@ def probe_c4_c5_c6(run: A1Run) -> None:
                     "A1 diagnostic probe. Interpret this synthetic microeconomic "
                     "claim in one sentence: 'If a budget set expands and preferences "
                     "are unchanged, the attainable set does not shrink.' Reply with "
-                    "JSON: {\"interpretation\": \"...\"}."
+                    'JSON: {"interpretation": "..."}.'
                 )
             },
         ),
@@ -158,7 +181,12 @@ def probe_c4_c5_c6(run: A1Run) -> None:
                 run_id=run.run_id,
             )
         except ProviderFailure as failure:
-            run.record(criterion, CapabilityStatus.UNAVAILABLE, {"error": failure.message}, failure.reason_code)
+            run.record(
+                criterion,
+                CapabilityStatus.UNAVAILABLE,
+                {"error": failure.message},
+                failure.reason_code,
+            )
             metadata_ok = False
             continue
         meta = response.metadata
@@ -182,7 +210,11 @@ def probe_c4_c5_c6(run: A1Run) -> None:
             },
         )
     status = CapabilityStatus.HEALTHY if metadata_ok else CapabilityStatus.UNAVAILABLE
-    run.record("C6_provider_metadata", status, {"checked": ["model", "request_id", "latency", "token_metadata"]})
+    run.record(
+        "C6_provider_metadata",
+        status,
+        {"checked": ["model", "request_id", "latency", "token_metadata"]},
+    )
 
 
 def probe_c7(run: A1Run) -> None:
@@ -228,9 +260,16 @@ def probe_c10(run: A1Run) -> None:
             declared_class="PUBLIC",
             run_id=run.run_id,
         )
-        run.record("C10_provider_failure_typed", CapabilityStatus.UNAVAILABLE, {"error": "malformed output unexpectedly accepted"})
+        run.record(
+            "C10_provider_failure_typed",
+            CapabilityStatus.UNAVAILABLE,
+            {"error": "malformed output unexpectedly accepted"},
+        )
     except ProviderFailure as failure:
-        typed = failure.kind in (ProviderFailureKind.INVALID_OUTPUT, ProviderFailureKind.UNAVAILABLE)
+        typed = failure.kind in (
+            ProviderFailureKind.INVALID_OUTPUT,
+            ProviderFailureKind.UNAVAILABLE,
+        )
         run.record(
             "C10_provider_failure_typed",
             CapabilityStatus.HEALTHY if typed else CapabilityStatus.UNAVAILABLE,
@@ -240,9 +279,15 @@ def probe_c10(run: A1Run) -> None:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="LeanEcon v4 A1 diagnostics")
-    parser.add_argument("--live", action="store_true", help="run live provider probes (criteria 4-6)")
-    parser.add_argument("--events-dir", default="artifacts/local/a1-events", help="event log directory")
-    parser.add_argument("--skip-lean", action="store_true", help="skip workspace probes (criterion 1,2,3,9)")
+    parser.add_argument(
+        "--live", action="store_true", help="run live provider probes (criteria 4-6)"
+    )
+    parser.add_argument(
+        "--events-dir", default="artifacts/local/a1-events", help="event log directory"
+    )
+    parser.add_argument(
+        "--skip-lean", action="store_true", help="skip workspace probes (criterion 1,2,3,9)"
+    )
     args = parser.parse_args(argv)
 
     run = A1Run(Path(args.events_dir))
@@ -257,8 +302,14 @@ def main(argv=None) -> int:
         probe_c4_c5_c6(run)
     else:
         for criterion in ("C4_formalization_structured_output", "C5_interpretation_schema"):
-            run.record(criterion, CapabilityStatus.UNAVAILABLE, {"note": "skipped: rerun with --live"})
-        run.record("C6_provider_metadata", CapabilityStatus.UNAVAILABLE, {"note": "skipped: rerun with --live"})
+            run.record(
+                criterion, CapabilityStatus.UNAVAILABLE, {"note": "skipped: rerun with --live"}
+            )
+        run.record(
+            "C6_provider_metadata",
+            CapabilityStatus.UNAVAILABLE,
+            {"note": "skipped: rerun with --live"},
+        )
     probe_c7(run)
 
     summary = run.summary()

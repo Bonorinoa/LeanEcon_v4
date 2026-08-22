@@ -16,7 +16,6 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any, Optional
 
 from leanecon.data_policy import canonical_digest
 
@@ -65,7 +64,9 @@ def _business_rule_problems(candidate: dict) -> list[str]:
 
     classification = candidate.get("data_classification")
     if classification not in ("PUBLIC", "PROJECT", "RESTRICTED"):
-        problems.append(f"data_classification must be PUBLIC/PROJECT/RESTRICTED, got {classification!r}")
+        problems.append(
+            f"data_classification must be PUBLIC/PROJECT/RESTRICTED, got {classification!r}"
+        )
 
     return problems
 
@@ -79,7 +80,9 @@ def validate_ei_candidate(candidate: dict, schema: dict | None = None) -> list[s
 
         validator = jsonschema.Draft202012Validator(schema)
         for error in sorted(validator.iter_errors(candidate), key=lambda e: list(e.path)):
-            problems.append(f"schema: {'/'.join(str(p) for p in error.path) or '<root>'}: {error.message}")
+            problems.append(
+                f"schema: {'/'.join(str(p) for p in error.path) or '<root>'}: {error.message}"
+            )
     except Exception as exc:  # pragma: no cover - dependency failure must be visible
         problems.append(f"jsonschema unavailable: {exc}")
     problems.extend(_business_rule_problems(candidate))
@@ -98,7 +101,7 @@ def interpret_prompt(claim_text: str) -> str:
         "economic claim. It is a meaning hypothesis for human review — do NOT "
         "prove anything, do NOT write Lean code, do NOT invent facts beyond the claim.\n\n"
         "Return ONLY a JSON object with exactly these fields:\n"
-        "  schema_version: \"1.0.0\"\n"
+        '  schema_version: "1.0.0"\n'
         "  claim: {canonical_text: normalized claim, source_text: original text}\n"
         "  context: {domain_tags: [str], definitions: [{id, text}], ontology_refs: [str]}\n"
         "  objects: [{id, kind, role}]  (economic objects/agents/markets)\n"
@@ -110,8 +113,8 @@ def interpret_prompt(claim_text: str) -> str:
         "  provenance: {source_span: str, mapping_method: str, references: [str]}\n"
         "  confidence: number 0..1 (process confidence, not truth)\n"
         "  degradation_flags: [str]\n"
-        "  review: {decision: \"PENDING\", reviewer: null, event_ref: null}\n"
-        "  data_classification: \"PROJECT\"\n\n"
+        '  review: {decision: "PENDING", reviewer: null, event_ref: null}\n'
+        '  data_classification: "PROJECT"\n\n'
         "Claim:\n"
         f"{claim_text}"
     )
@@ -145,7 +148,9 @@ def finalize_ei(
         raise ValueError("only a PENDING candidate may be finalized")
     none_noted = bool(candidate.get("none_noted", False))
     if none_noted and not acknowledges_none_noted:
-        raise ValueError("none_noted interpretation requires reviewer acknowledgement (acknowledges_none_noted)")
+        raise ValueError(
+            "none_noted interpretation requires reviewer acknowledgement (acknowledges_none_noted)"
+        )
     finalized = dict(candidate)
     finalized["review"] = {
         "decision": REVIEW_APPROVED,

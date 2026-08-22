@@ -12,10 +12,9 @@ from __future__ import annotations
 import json
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
 
 SCHEMA_VERSION = "1.0.0"
 
@@ -57,7 +56,7 @@ class CapabilityStatus(str, Enum):
 
 
 def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 @dataclass(frozen=True)
@@ -75,9 +74,9 @@ class Event:
     actor: str
     payload_class: str
     trace_ref: str
-    claim_id: Optional[str] = None
-    state_before: Optional[str] = None
-    state_after: Optional[str] = None
+    claim_id: str | None = None
+    state_before: str | None = None
+    state_after: str | None = None
     reason_codes: tuple = ()
     detail: dict = field(default_factory=dict)
     event_id: str = field(default_factory=lambda: f"evt-{uuid.uuid4()}")
@@ -153,4 +152,8 @@ class EventLog:
     def read_all(self) -> list:
         if not self.path.exists():
             return []
-        return [json.loads(line) for line in self.path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        return [
+            json.loads(line)
+            for line in self.path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]

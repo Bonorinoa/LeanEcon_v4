@@ -17,7 +17,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 SECRET_FIELD_PATTERN = re.compile(
     r"(?i)(api[_-]?key|token|password|passwd|secret|credential|authorization|private[_-]?key)"
@@ -141,9 +141,9 @@ def canonical_digest(payload: Any) -> str:
 class PolicyDecision:
     allowed: bool
     payload_class: PayloadClass
-    reason_code: Optional[str] = None
+    reason_code: str | None = None
     redaction_report: list = field(default_factory=list)
-    content_digest: Optional[str] = None
+    content_digest: str | None = None
     detail: str = ""
 
 

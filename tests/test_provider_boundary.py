@@ -7,12 +7,11 @@ runner (never in this suite).
 
 import pytest
 
-from leanecon import data_policy
 from leanecon.adapters.mistral import (
     MVP_MODEL_MAP,
     MistralAdapter,
 )
-from leanecon.events import CapabilityStatus, EVENT_PROVIDER_REQUEST_BLOCKED
+from leanecon.events import EVENT_PROVIDER_REQUEST_BLOCKED, CapabilityStatus
 from leanecon.providers import (
     Capability,
     ProviderFailure,
@@ -176,9 +175,12 @@ def test_denied_request_never_reaches_transport(monkeypatch):
         return _ok_transport(request, api_key, timeout_s)
 
     events = []
-    adapter = _adapter(transport=spy, emit_event=lambda decision, cap, run_id, claim_id: events.append(
-        adapter.emit_blocked_event(decision, cap, run_id, claim_id)
-    ))
+    adapter = _adapter(
+        transport=spy,
+        emit_event=lambda decision, cap, run_id, claim_id: events.append(
+            adapter.emit_blocked_event(decision, cap, run_id, claim_id)
+        ),
+    )
     with pytest.raises(ProviderFailure):
         adapter.request(
             capability=Capability.INTERPRET,

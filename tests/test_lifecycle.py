@@ -10,8 +10,16 @@ from leanecon.lifecycle import (
 
 def test_all_states_present():
     assert set(CLAIM_STATES) == {
-        "DRAFT", "INTERPRETED", "REVIEW_REQUIRED", "ACCEPTED", "REJECTED",
-        "FORMALIZED", "PROVING", "VERIFIED", "FAILED", "BLOCKED",
+        "DRAFT",
+        "INTERPRETED",
+        "REVIEW_REQUIRED",
+        "ACCEPTED",
+        "REJECTED",
+        "FORMALIZED",
+        "PROVING",
+        "VERIFIED",
+        "FAILED",
+        "BLOCKED",
     }
 
 

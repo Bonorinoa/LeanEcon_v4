@@ -9,11 +9,21 @@ STD_AXIOMS = ["propext", "Classical.choice", "Quot.sound"]
 
 def _verified_verification() -> dict:
     return {
-        "claim_id": "c1", "run_id": "run-1", "theorem_name": "leanecon_c4_monotone_order",
-        "compile_ok": True, "exit_code": 0, "timed_out": False, "stderr_tail": "",
-        "axiom_list": list(STD_AXIOMS), "static_sorry_ok": True, "workspace_pinned": True,
-        "candidate_path": "/tmp/Candidate.lean", "elapsed_ms": 100, "outcome": "VERIFIED",
-        "reason_code": None, "detail": {},
+        "claim_id": "c1",
+        "run_id": "run-1",
+        "theorem_name": "leanecon_c4_monotone_order",
+        "compile_ok": True,
+        "exit_code": 0,
+        "timed_out": False,
+        "stderr_tail": "",
+        "axiom_list": list(STD_AXIOMS),
+        "static_sorry_ok": True,
+        "workspace_pinned": True,
+        "candidate_path": "/tmp/Candidate.lean",
+        "elapsed_ms": 100,
+        "outcome": "VERIFIED",
+        "reason_code": None,
+        "detail": {},
     }
 
 
@@ -21,18 +31,36 @@ def _build_happy(tmp_path) -> tuple[ArtifactStore, ClaimRecord, str]:
     store = ArtifactStore(tmp_path)
     claim = ClaimRecord(claim_id="c1", revision=1, source_text="claim", data_class="PROJECT")
     store.save_claim(claim)
-    ei = store.write_ei("c1", {"claim": {"canonical_text": "x"}, "review": {"decision": "APPROVED"}}, status="accepted")
-    formal = store.write_formal("c1", {"statement_text": "theorem t : True", "target_theorem": "t",
-                                       "imports": ["Mathlib.Data.Real.Basic"], "gaps": []}, status="current")
+    ei = store.write_ei(
+        "c1",
+        {"claim": {"canonical_text": "x"}, "review": {"decision": "APPROVED"}},
+        status="accepted",
+    )
+    formal = store.write_formal(
+        "c1",
+        {
+            "statement_text": "theorem t : True",
+            "target_theorem": "t",
+            "imports": ["Mathlib.Data.Real.Basic"],
+            "gaps": [],
+        },
+        status="current",
+    )
     proof = "theorem t : True := by trivial"
     verification = _verified_verification()
     bundle_id, _ = build_bundle(
-        store=store, claim=claim, ei_artifact=ei, formal_artifact=formal, proof_source=proof,
+        store=store,
+        claim=claim,
+        ei_artifact=ei,
+        formal_artifact=formal,
+        proof_source=proof,
         verification=verification,
         approval_record={"decision": "APPROVED", "event_ref": "evt-approve"},
         axiom_record={"approved_axioms": STD_AXIOMS},
-        trace_refs=["claim:c1", "run:1"], capability_snapshots={"lean_workspace": "HEALTHY"},
-        workspace_root=WORKSPACE, commands=["a3 verify --claim-id c1 --proof f"],
+        trace_refs=["claim:c1", "run:1"],
+        capability_snapshots={"lean_workspace": "HEALTHY"},
+        workspace_root=WORKSPACE,
+        commands=["a3 verify --claim-id c1 --proof f"],
     )
     return store, claim, bundle_id
 
@@ -50,7 +78,6 @@ def test_happy_bundle_passes_all_twelve(tmp_path):
 def test_sorry_in_axiom_audit_fails_check_5(tmp_path):
     store, claim, bundle_id = _build_happy(tmp_path)
     bundle_dir = store.bundle_path(bundle_id)
-    manifest = store.read_bundle_manifest(bundle_id)
     # a verification whose axiom audit includes sorryAx must fail the no-sorry check
     import json
 
@@ -73,7 +100,8 @@ def test_unapproved_axiom_fails_check_6(tmp_path):
     store, claim, bundle_id = _build_happy(tmp_path)
     bundle_dir = store.bundle_path(bundle_id)
     bundle_dir.joinpath("axiom_record.json").write_text(
-        '{"approved_axioms": ["propext"]}', encoding="utf-8")
+        '{"approved_axioms": ["propext"]}', encoding="utf-8"
+    )
     checks = validate_bundle(store, bundle_id, claim)
     assert not dict((c[0], c[1]) for c in checks)["6_axiom_audit"]
 
@@ -104,18 +132,31 @@ def test_zero_axiom_bundle_passes_without_axiom_record(tmp_path):
     store = ArtifactStore(tmp_path)
     claim = ClaimRecord(claim_id="c1", revision=1, source_text="claim", data_class="PROJECT")
     store.save_claim(claim)
-    ei = store.write_ei("c1", {"claim": {"canonical_text": "x"}, "review": {"decision": "APPROVED"}}, status="accepted")
-    formal = store.write_formal("c1", {"statement_text": "theorem t : True", "target_theorem": "t",
-                                       "imports": [], "gaps": []}, status="current")
+    ei = store.write_ei(
+        "c1",
+        {"claim": {"canonical_text": "x"}, "review": {"decision": "APPROVED"}},
+        status="accepted",
+    )
+    formal = store.write_formal(
+        "c1",
+        {"statement_text": "theorem t : True", "target_theorem": "t", "imports": [], "gaps": []},
+        status="current",
+    )
     verification = _verified_verification()
     verification["axiom_list"] = []  # zero axioms
     bundle_id, _ = build_bundle(
-        store=store, claim=claim, ei_artifact=ei, formal_artifact=formal, proof_source="theorem t : True := by trivial",
+        store=store,
+        claim=claim,
+        ei_artifact=ei,
+        formal_artifact=formal,
+        proof_source="theorem t : True := by trivial",
         verification=verification,
         approval_record={"decision": "APPROVED", "event_ref": "evt-approve"},
         axiom_record=None,  # no approval needed
-        trace_refs=["claim:c1"], capability_snapshots={"lean_workspace": "HEALTHY"},
-        workspace_root=WORKSPACE, commands=["a3 verify --claim-id c1"],
+        trace_refs=["claim:c1"],
+        capability_snapshots={"lean_workspace": "HEALTHY"},
+        workspace_root=WORKSPACE,
+        commands=["a3 verify --claim-id c1"],
     )
     checks = validate_bundle(store, bundle_id, claim)
     assert dict((c[0], c[1]) for c in checks)["6_axiom_audit"] is True
@@ -133,18 +174,36 @@ def _build_with_core(tmp_path) -> tuple[ArtifactStore, ClaimRecord, str]:
     store = ArtifactStore(tmp_path)
     claim = ClaimRecord(claim_id="c1", revision=1, source_text="claim", data_class="PROJECT")
     store.save_claim(claim)
-    ei = store.write_ei("c1", {"claim": {"canonical_text": "x"}, "review": {"decision": "APPROVED"}}, status="accepted")
-    formal = store.write_formal("c1", {"statement_text": "theorem t : True", "target_theorem": "t",
-                                       "imports": ["LeanEcon.Core.Constraints"], "gaps": []}, status="current")
+    ei = store.write_ei(
+        "c1",
+        {"claim": {"canonical_text": "x"}, "review": {"decision": "APPROVED"}},
+        status="accepted",
+    )
+    formal = store.write_formal(
+        "c1",
+        {
+            "statement_text": "theorem t : True",
+            "target_theorem": "t",
+            "imports": ["LeanEcon.Core.Constraints"],
+            "gaps": [],
+        },
+        status="current",
+    )
     proof = "import LeanEcon.Core.Constraints\n\ntheorem t : True := by trivial"
     verification = _verified_verification()
     bundle_id, _ = build_bundle(
-        store=store, claim=claim, ei_artifact=ei, formal_artifact=formal, proof_source=proof,
+        store=store,
+        claim=claim,
+        ei_artifact=ei,
+        formal_artifact=formal,
+        proof_source=proof,
         verification=verification,
         approval_record={"decision": "APPROVED", "event_ref": "evt-approve"},
         axiom_record={"approved_axioms": STD_AXIOMS},
-        trace_refs=["claim:c1", "run:1"], capability_snapshots={"lean_workspace": "HEALTHY"},
-        workspace_root=WORKSPACE, commands=["a3 verify --claim-id c1 --proof f"],
+        trace_refs=["claim:c1", "run:1"],
+        capability_snapshots={"lean_workspace": "HEALTHY"},
+        workspace_root=WORKSPACE,
+        commands=["a3 verify --claim-id c1 --proof f"],
     )
     return store, claim, bundle_id
 
@@ -216,17 +275,35 @@ def test_core_import_from_proof_only_is_recorded(tmp_path):
     store = ArtifactStore(tmp_path)
     claim = ClaimRecord(claim_id="c1", revision=1, source_text="claim", data_class="PROJECT")
     store.save_claim(claim)
-    ei = store.write_ei("c1", {"claim": {"canonical_text": "x"}, "review": {"decision": "APPROVED"}}, status="accepted")
-    formal = store.write_formal("c1", {"statement_text": "theorem t : True", "target_theorem": "t",
-                                       "imports": ["Mathlib.Data.Real.Basic"], "gaps": []}, status="current")
+    ei = store.write_ei(
+        "c1",
+        {"claim": {"canonical_text": "x"}, "review": {"decision": "APPROVED"}},
+        status="accepted",
+    )
+    formal = store.write_formal(
+        "c1",
+        {
+            "statement_text": "theorem t : True",
+            "target_theorem": "t",
+            "imports": ["Mathlib.Data.Real.Basic"],
+            "gaps": [],
+        },
+        status="current",
+    )
     proof = "import LeanEcon.Core.Primitives\n\ntheorem t : True := by trivial"
     bundle_id, _ = build_bundle(
-        store=store, claim=claim, ei_artifact=ei, formal_artifact=formal, proof_source=proof,
+        store=store,
+        claim=claim,
+        ei_artifact=ei,
+        formal_artifact=formal,
+        proof_source=proof,
         verification=_verified_verification(),
         approval_record={"decision": "APPROVED", "event_ref": "evt-approve"},
         axiom_record={"approved_axioms": STD_AXIOMS},
-        trace_refs=["claim:c1"], capability_snapshots={"lean_workspace": "HEALTHY"},
-        workspace_root=WORKSPACE, commands=["a3 verify --claim-id c1"],
+        trace_refs=["claim:c1"],
+        capability_snapshots={"lean_workspace": "HEALTHY"},
+        workspace_root=WORKSPACE,
+        commands=["a3 verify --claim-id c1"],
     )
     manifest = store.read_bundle_manifest(bundle_id)
     assert manifest["dependency_audit"]["core_imports"] == ["LeanEcon.Core.Primitives"]

@@ -24,7 +24,6 @@ The invariants under test:
 
 from leanecon.skeleton import (
     Skeleton,
-    parse_skeleton,
     refined_proof_ok,
     skeleton_edit_distance,
     validate_skeleton,

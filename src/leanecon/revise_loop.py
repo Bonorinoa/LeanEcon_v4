@@ -23,8 +23,8 @@ boundary, the sorryAx audit — the same gate the verifier enforces.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Optional
 
 #: Bounded revision budget (INIT_V2.md Phase 2: 2-3 attempts).
 MAX_REVISION_ATTEMPTS = 3
@@ -36,7 +36,7 @@ class Feedback:
 
     draft: str
     static_problems: list[str] = field(default_factory=list)
-    probe_compiles: Optional[bool] = None
+    probe_compiles: bool | None = None
     probe_stderr: str = ""
 
 
@@ -82,6 +82,4 @@ def revise_statement_draft(
             return ReviseOutcome(
                 accepted=True, attempts_used=len(history), revision_history=history
             )
-    return ReviseOutcome(
-        accepted=False, attempts_used=len(history), revision_history=history
-    )
+    return ReviseOutcome(accepted=False, attempts_used=len(history), revision_history=history)

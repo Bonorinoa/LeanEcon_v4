@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Optional
 
 #: Element kinds that must be mapped (or flagged unmapped) before PROVING.
 MATERIAL_KINDS = {"object", "assumption", "quantifier", "conclusion", "solution", "definition"}
@@ -33,7 +32,9 @@ MAPPING_KINDS = ("mathlib", "core", "local_definition", "glossary_term", "none")
 #: skeleton requires an Area component (Core declarations live under
 #: ``LeanEcon.Core.<Area>``), so at least TWO dotted components after the
 #: ``LeanEcon.Core.`` prefix are required.
-CORE_IDENTIFIER_RE = re.compile(r"^LeanEcon\.Core\.[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+$")
+CORE_IDENTIFIER_RE = re.compile(
+    r"^LeanEcon\.Core\.[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+$"
+)
 
 
 def material_element_ids(ei: dict) -> list[tuple[str, str]]:
@@ -75,7 +76,9 @@ def validate_mapping_report(report: list[dict], ei: dict) -> tuple[list[str], li
         if row.get("status") not in MAPPING_STATUSES:
             problems.append(f"row {row.get('ei_element_id')}: invalid status {row.get('status')!r}")
         if row.get("status") == "mapped" and row.get("mapping_kind") not in MAPPING_KINDS:
-            problems.append(f"row {row.get('ei_element_id')}: invalid mapping_kind {row.get('mapping_kind')!r}")
+            problems.append(
+                f"row {row.get('ei_element_id')}: invalid mapping_kind {row.get('mapping_kind')!r}"
+            )
         if row.get("status") == "mapped" and row.get("mapping_kind") == "core":
             # D1: core rows must resolve as written — fully-qualified
             # LeanEcon.Core identifier, no bare names (eliminates open-based
@@ -93,12 +96,35 @@ def validate_mapping_report(report: list[dict], ei: dict) -> tuple[list[str], li
     for element_id, kind in material_element_ids(ei):
         row = by_id.get(element_id)
         if row is None:
-            gaps.append({"ei_element_id": element_id, "ei_element_kind": kind, "reason": "missing mapping row"})
+            gaps.append(
+                {
+                    "ei_element_id": element_id,
+                    "ei_element_kind": kind,
+                    "reason": "missing mapping row",
+                }
+            )
         elif row.get("status") == "unmapped":
-            gaps.append({"ei_element_id": element_id, "ei_element_kind": kind, "reason": row.get("note") or "unmapped"})
+            gaps.append(
+                {
+                    "ei_element_id": element_id,
+                    "ei_element_kind": kind,
+                    "reason": row.get("note") or "unmapped",
+                }
+            )
         elif row.get("status") not in ("mapped",):
-            problems.append(f"row {element_id}: material {kind} must be mapped or unmapped, got {row.get('status')!r}")
+            problems.append(
+                f"row {element_id}: material {kind} must be mapped or unmapped, got {row.get('status')!r}"
+            )
     return problems, gaps
+
+
+def _sanitize_namespace(claim_id: str) -> str:
+    """Lean namespace segment: only letters, digits, _ and '.'. Claim ids like
+    'v3h2-A' or 'v3p1-A' contain '-' which is not a valid Lean identifier
+    character — the scaffold namespace must use a sanitized form."""
+    cleaned = "".join(ch if ch.isalnum() or ch in "._" else "_" for ch in claim_id)
+    cleaned = cleaned.strip(".")
+    return cleaned or "claim"
 
 
 def formalize_prompt(ei: dict) -> str:
@@ -115,15 +141,20 @@ def formalize_prompt(ei: dict) -> str:
         "Given the ACCEPTED interpretation below (JSON), write a Lean 4 formal "
         "statement in the pinned Mathlib workspace.\n\n"
         "Rules:\n"
-        "- Output ONLY a JSON object: {\"statement\": <theorem signature as Lean text, "
+        '- Output ONLY a JSON object: {"statement": <theorem signature as Lean text, '
         "e.g. 'theorem name (args) : proposition' — signature ONLY, no proof body>, "
-        "\"target_theorem\": <theorem name>, \"mapping_report\": [...]}.\n"
+        '"target_theorem": <theorem name>, "mapping_report": [...]}.\n'
         "- HARD: the statement must be a SIGNATURE ONLY. It must end at the "
         "conclusion: `... : <conclusion>` with NO `:=` and NO `by ...` — do not "
         "attach a proof body. Do not use sorry/admit anywhere.\n"
         "- HARD: the statement must be well-formed Lean that compiles under "
         "`import Mathlib`. Typeclass binders like `[Set α]` are INVALID — use "
         "`[Fintype α]`, `[LinearOrder α]` etc. only for genuine typeclasses.\n"
+        "- HARD: finite goods/agents must be `Finset` (or `[Fintype]` on a Type) "
+        "so `∑` has a summation instance. Do not write `∑ g,` over a bare Type. "
+        "Do not apply `StrictMono` to a utility on bundles — state monotonicity "
+        "as an explicit hypothesis `∀ x y, …`. Prefer `Finset.sum` over set "
+        "comprehensions that Lean cannot elaborate.\n"
         "- HARD: no tautologies and no vacuous theorems. The conclusion must be "
         "a substantive proposition about the claim, NOT identical to any "
         "hypothesis, and not derivable from a hypothesis alone. If the claim "
@@ -135,8 +166,11 @@ def formalize_prompt(ei: dict) -> str:
         "- The statement may define small A3-local scaffolding definitions first "
         "(clearly commented 'A3-local scaffolding, not LeanEcon Core'). "
         "Scaffolding MUST be namespace-scoped: put it inside "
-        "'namespace A3Scaffolding.<claim_id> ... end' — never at the root "
-        "namespace (root declarations can shadow Mathlib identifiers within the file).\n"
+        f"'namespace A3Scaffolding.{_sanitize_namespace(str(ei.get('claim_id') or 'claim'))} ... end' "
+        "— never at the root "
+        "namespace (root declarations can shadow Mathlib identifiers within the file). "
+        "Use only letters, digits, dots and underscores in the namespace — never '-' "
+        "or other punctuation (claim ids like 'v3p1-A' must become e.g. 'v3p1_A').\n"
         "- The mapping_report must contain one row per material EI element with "
         "fields: ei_element_id, ei_element_kind, lean_identifier, mapping_kind "
         "(mathlib|core|glossary_term|local_definition), status (mapped|unmapped|deferred), "
@@ -146,6 +180,16 @@ def formalize_prompt(ei: dict) -> str:
         "from the interpretation (e.g. 'u', 'x', 'preferences' — never 'object:u'), "
         "'assumption:<i>', 'quantifier:<i>', 'conclusion', 'solution_concept', "
         "'definition:<i>'. Do not rename or prefix them.\n"
+        "- HARD (D1 discipline): 'core' is ONLY for genuine LeanEcon.Core vocabulary "
+        "(e.g. LeanEcon.Core.Constraints.budgetSet, LeanEcon.Core.Constraints.budgetSetEndowment, "
+        "LeanEcon.Core.Choice.attainableSet, LeanEcon.Core.Equilibrium.marketClearing, "
+        "LeanEcon.Core.Equilibrium.competitiveEquilibrium, LeanEcon.Core.Equilibrium.paretoEfficiency, "
+        "LeanEcon.Core.Utility.strictlyIncreasing, LeanEcon.Core.Primitives.bundle, "
+        "LeanEcon.Core.Preferences.weakPreference). THEOREM BINDERS, HYPOTHESIS NAMES "
+        "(p, x, e, u, h, hx, hp, goods, prices...) and ordinary Mathlib types (ℝ, Finset, ∀) "
+        "are NEVER core rows — use mapping_kind 'local_definition' (binder/lemma) or "
+        "'mathlib' (Mathlib identifier) for them. When the statement references Core, "
+        "add the matching 'import LeanEcon.Core.<Area>' line at the top of the statement.\n"
         "- If an element cannot be mapped, mark it unmapped with a note — never "
         "invent a definition to hide the gap.\n\n"
         "Accepted interpretation (JSON):\n"
@@ -163,11 +207,22 @@ _SCAFFOLDING_KEYWORDS = ("abbrev", "def", "structure", "class", "inductive", "in
 #: Declaration keywords tracked for the proof-body check (P4 finding: the
 #: old `\s:=` regex false-positived on scaffolding definitions like
 #: `abbrev Bundle := ℝ`; only THEOREM-STYLE declarations are signature-only).
-_DECL_KEYWORDS = ("theorem", "lemma", "example", "axiom", "def", "abbrev", "structure", "class", "inductive", "instance")
+_DECL_KEYWORDS = (
+    "theorem",
+    "lemma",
+    "example",
+    "axiom",
+    "def",
+    "abbrev",
+    "structure",
+    "class",
+    "inductive",
+    "instance",
+)
 _SIGNATURE_ONLY = ("theorem", "lemma", "example", "axiom")
 
 
-def _decl_head(line: str) -> Optional[str]:
+def _decl_head(line: str) -> str | None:
     """Declaration keyword at the start of a stripped line, or None.
 
     Tolerates ``noncomputable``/``private``/``protected`` prefixes and
@@ -210,7 +265,7 @@ def validate_statement_text(statement: str) -> list[str]:
     for token in _SORRY_TOKENS:
         if token in lowered:
             problems.append(f"statement contains '{token}' (contract violation)")
-    current_decl: Optional[str] = None
+    current_decl: str | None = None
     for lineno, raw in enumerate(statement.splitlines(), start=1):
         if not raw.strip():
             continue
@@ -269,7 +324,7 @@ def validate_scaffolding_namespace(statement: str) -> list[str]:
     return problems
 
 
-def vacuity_warning(statement: str) -> Optional[str]:
+def vacuity_warning(statement: str) -> str | None:
     """Heuristic: does the conclusion restate a hypothesis (vacuous/tautological)?
 
     Extracts the text after the LAST ``:`` (the conclusion) and checks whether
@@ -283,7 +338,10 @@ def vacuity_warning(statement: str) -> Optional[str]:
     if not conclusion:
         return None
     hypothesis_region = statement[:colon]
-    norm = lambda s: re.sub(r"\s+", "", s)
+
+    def norm(value: str) -> str:
+        return re.sub(r"\s+", "", value)
+
     if norm(conclusion) in norm(hypothesis_region):
         return f"conclusion restates a hypothesis (potential vacuity): '{conclusion[:80]}'"
     return None

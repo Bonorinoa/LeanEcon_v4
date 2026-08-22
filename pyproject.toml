@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "leanecon-v4"
-version = "2.0.0"
+version = "3.0.0.dev0"
 description = "Clean-room rebuild of LeanEcon: kernel-checked economics formalization with auditable provenance."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -13,7 +13,7 @@ authors = [{ name = "Augusto Gonzalez Bonorino" }]
 dependencies = ["httpx>=0.27", "jsonschema>=4.20"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ruff>=0.12"]
 
 [project.scripts]
 leanecon-a1 = "leanecon.a1_runner:main"
@@ -28,3 +28,14 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E9", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/check_release_state.py" = ["E402"]
+"scripts/eval_semantic_reviews.py" = ["E402"]

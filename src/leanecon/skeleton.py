@@ -29,7 +29,6 @@ from __future__ import annotations
 import difflib
 import re
 from dataclasses import dataclass, field
-from typing import Optional
 
 #: Tactic soup that can fabricate sorry bodies with exit 0 (B2 spike,
 #: 2026-08-08). A have-step body made of these with no gap annotation is
@@ -57,9 +56,7 @@ _GAP_NOTE_RE = re.compile(r"--\s*GAP\s*:[^\S\n]*(.*)$", re.MULTILINE)
 _SORRY_TOKENS = ("sorry", "admit")
 
 #: have-step header: ``have <name> : <statement> := by``
-_STEP_RE = re.compile(
-    r"^(?P<indent>\s*)have\s+(?P<name>\w+)\s*:\s*(?P<stmt>.*?)\s*:=\s*by\s*$"
-)
+_STEP_RE = re.compile(r"^(?P<indent>\s*)have\s+(?P<name>\w+)\s*:\s*(?P<stmt>.*?)\s*:=\s*by\s*$")
 
 
 @dataclass
@@ -69,7 +66,7 @@ class HaveStep:
     name: str
     statement: str
     body: str
-    gap_note: Optional[str] = None
+    gap_note: str | None = None
     unresolved: bool = False
 
 
@@ -111,7 +108,7 @@ def _strip_comments(text: str) -> str:
 def _analyze_step(name: str, stmt: str, body: str, problems: list[str]) -> HaveStep:
     """Classify one have-step: gap annotation, contamination, smuggling."""
     lowered = body.lower()
-    gap_note: Optional[str] = None
+    gap_note: str | None = None
     m = _GAP_NOTE_RE.search(body)
     has_gap_comment = "-- GAP" in body
     if m:
@@ -128,14 +125,10 @@ def _analyze_step(name: str, stmt: str, body: str, problems: list[str]) -> HaveS
     if not has_sorry and not has_metavar and not has_gap_comment and gap_note is None:
         body_tactics = re.findall(r"\b[\w?]+\b", body)
         if any(t in body_tactics for t in _AUTO_TACTICS):
-            problems.append(
-                f"unmarked tactic body in have step '{name}' (B2 smuggling risk)"
-            )
+            problems.append(f"unmarked tactic body in have step '{name}' (B2 smuggling risk)")
 
     unresolved = has_sorry or has_metavar or has_gap_comment or gap_note is not None
-    return HaveStep(
-        name=name, statement=stmt, body=body, gap_note=gap_note, unresolved=unresolved
-    )
+    return HaveStep(name=name, statement=stmt, body=body, gap_note=gap_note, unresolved=unresolved)
 
 
 def parse_skeleton(text: str) -> Skeleton:
@@ -191,9 +184,7 @@ def skeleton_edit_distance(a: str, b: str) -> int:
 
     0 for identical texts; monotonically larger for more rework.
     """
-    matcher = difflib.SequenceMatcher(
-        None, a.splitlines(), b.splitlines(), autojunk=False
-    )
+    matcher = difflib.SequenceMatcher(None, a.splitlines(), b.splitlines(), autojunk=False)
     return sum(
         len(a[i1:i2]) + len(b[j1:j2])
         for tag, i1, i2, j1, j2 in matcher.get_opcodes()

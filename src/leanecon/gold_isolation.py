@@ -34,7 +34,11 @@ RELEASE_ARTIFACT_PATHS = ("artifacts/release", "release_corpus", "mvp_bundle")
 def scan_forbidden_paths(repo_root: Path, skip_parts=(".lake", ".venv", ".git")) -> list:
     found = []
     for name in FORBIDDEN_PATHS:
-        hits = [p for p in Path(repo_root).rglob(name) if not any(part in skip_parts for part in p.parts)]
+        hits = [
+            p
+            for p in Path(repo_root).rglob(name)
+            if not any(part in skip_parts for part in p.parts)
+        ]
         found.extend(str(h.relative_to(repo_root)) for h in hits)
     return found
 

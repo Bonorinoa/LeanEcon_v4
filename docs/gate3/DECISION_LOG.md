@@ -291,3 +291,33 @@ Resolutions incorporated:
   embeddings / other IRs) that a prover agent can process, with
   decomposition and kernel-feedback loops on top. Reviewer + axiom
   audit remain non-bypassable.
+
+---
+
+# v3 — constrained auto-formalize (branch-local, 2026-08-16)
+
+**Status:** recorded on `v3/phase1-wire-loop`. **Not merged. Not tagged.**
+Items below are branch facts pending CTO merge/tag authorization.
+Empty clarify ≠ consent.
+
+| # | Item | CTO disposition | Package state |
+|---|---|---|---|
+| 41 | v3 Phases 1–3 on this branch: live `revise_loop` in `formalize_claim`; deterministic fixture scorer + CI (`provider_calls=0`); additive `skeleton` CLI with gap-blocked verify; Phase 4 skipped | executed locally; merge pending | **BRANCH — PENDING MERGE** |
+| 42 | Honest 60–70% verdict: draft-complete **2/8 (25%)**, first_try **0/8**, sole-author **0%** on spent splits v3h+v3h2. Target **MISSED**. Do not re-run spent holdouts | recorded 2026-08-13 | **EVIDENCE — NOT A TAG** |
+| 43 | Development truth surface: package `3.0.0.dev0`, builder `leanecon-a3-3.0.0.dev0`, `docs/releases/DEVELOPMENT.md`, `scripts/check_release_state.py` fail-closed in CI. Final `3.0.0` requires the matching tag at HEAD | implemented this session | **BRANCH — PENDING MERGE** |
+| 44 | Sealed eval protocol `formalizer-sealed-1` (`leanecon.eval_protocol`): hygiene / kernel / semantic fidelity stay uncollapsed; next holdout is text-free; B2 proving is **not** a v3.0.0 earn criterion | implemented this session | **BRANCH — PENDING MERGE** |
+| 45 | `v3.0.0` tag | not authorized by this amendment | **PENDING explicit tag line** |
+| 46 | v3 promise **narrowed** to **Verifiable State Machine**: the product is the audited single-claim lifecycle (live loop, skeleton side-door, scorer, sealed eval). 60–70% draft-complete is **not** a v3 claim (2/13 ≈ 15% combined, all sets spent) | Authorized 2026-08-16 | **LOCKED — NARROWED** |
+| 47 | v4 direction: wire intelligence into that state machine (`docs/v4/INIT_V4.md`). No v4 implementation from this item. Spent holdouts stay spent. B2 still not a ship requirement | Authorized as direction 2026-08-16 | **LOCKED — DIRECTION ONLY** |
+
+Resolutions incorporated:
+
+- A package/builder bump is a worktree fact, not a published release.
+- CI fixture scoring and live held-out scoring are different evidence
+  grades. Semantic review counts are not a substitute for the kernel
+  axiom audit.
+- Bounded proving remains out of v3.0.0 (B2 spike: compile ≠ pass).
+- 2026-08-16: original auto-formalize@60–70% promise is withdrawn
+  for v3 and moved to v4 (item 47). v3 names the machine, not the
+  draft rate.
+
