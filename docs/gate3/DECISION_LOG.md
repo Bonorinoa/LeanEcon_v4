@@ -310,6 +310,19 @@ Empty clarify ≠ consent.
 | 46 | v3 promise **narrowed** to **Verifiable State Machine**: the product is the audited single-claim lifecycle (live loop, skeleton side-door, scorer, sealed eval). 60–70% draft-complete is **not** a v3 claim (2/13 ≈ 15% combined, all sets spent) | Authorized 2026-08-16 | **LOCKED — NARROWED** |
 | 47 | v4 direction: wire intelligence into that state machine (`docs/v4/INIT_V4.md`). No v4 implementation from this item. Spent holdouts stay spent. B2 still not a ship requirement | Authorized as direction 2026-08-16 | **LOCKED — DIRECTION ONLY** |
 
+---
+
+# v4 intelligence sprint (branch-local, 2026-08-17)
+
+**Status:** recorded on `v4/intelligence-sprint`. **Not merged.**
+Sprint pre-authorized end-to-end by the CTO ("full permission to run
+experiments"); ≥50% draft-quality target stated up front.
+
+| # | Item | Disposition |
+|---|---|---|
+| 48 | Mechanical signature repair before audit (`sanitize_signature_draft` + `sanitize_core_mapping_rows`) + format exemplar in the formalize prompt. Audit gate, kernel probe, reviewer policy untouched. Repair notes recorded in revision history. | **implemented; suite 224 green** |
+| 49 | v4h1 sealed holdout (`formalizer-v4h1`, n=5, one pass): audit-clean within budget **5/5** (baseline 2/13 ≈ 15%); probe compiles 0/5; **draft_complete 0/5** — the ≥50% draft-complete target is **NOT met** under the v3 definition. Probe/elaboration is the next lever class. Set spent. | **recorded honestly; MISS on the strict metric** |
+
 Resolutions incorporated:
 
 - A package/builder bump is a worktree fact, not a published release.

@@ -155,18 +155,40 @@ def _axiom_wrap_signature(statement_text: str) -> str:
     Statements that already carry a body are left untouched (fallback).
     Leading ``import`` lines are preserved and reattached so Core-importing
     statements wrap correctly.
+
+    v4 fix (live evidence 2026-08-17: v4h1 A–E all skipped the wrap): the
+    theorem may be preceded by ``open``/``namespace`` scaffolding, so the
+    anchor is the LAST top-level theorem-style declaration line, not the
+    first token of the body. Only that declaration is rewritten; preamble,
+    scaffolding namespace, and ``open`` lines are preserved verbatim.
     """
-    if ":=" in statement_text or "sorry" in statement_text.lower():
+    if "sorry" in statement_text.lower():
         return statement_text
     imports = _IMPORT_RE.findall(statement_text)
     body = _IMPORT_RE.sub("", statement_text)
-    m = _THEOREM_RE.match(body.strip())
-    if m is None:
+    # Find the last line starting a signature-only theorem declaration.
+    decl_re = re.compile(
+        r"^(?P<prefix>(?:noncomputable\s+|private\s+|protected\s+|@\[[^\]]*\]\s+)*)"
+        r"(?:theorem|lemma)\s+(?P<name>[^\s:(]+)(?P<sig>.*)$",
+        re.DOTALL | re.MULTILINE,
+    )
+    last = None
+    for m in decl_re.finditer(body):
+        last = m
+    if last is None:
         return statement_text
-    wrapped = f"{m.group('prefix')}axiom {m.group('name')}{m.group('sig')}"
+    # v4 fix 2 (live evidence 2026-08-17: all five v4h1 probes skipped the
+    # wrap): ':=' is a PROOF BODY only on theorem-style declarations (P4).
+    # Scaffolding 'def f ... := ...' legitimately carries one, so the old
+    # global ':=' guard wrongly skipped every sanitized draft. Test the
+    # DECLARATION text only.
+    if ":=" in last.group("sig"):
+        return statement_text
+    head = body[: last.start()]
+    wrapped_decl = f"{last.group('prefix')}axiom {last.group('name')}{last.group('sig')}"
     if imports:
-        return "\n".join(imports) + "\n" + wrapped
-    return wrapped
+        return "\n".join(imports) + "\n" + head + wrapped_decl
+    return head + wrapped_decl
 
 
 def probe_statement_compiles(

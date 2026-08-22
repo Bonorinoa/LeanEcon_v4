@@ -202,4 +202,9 @@ and must be resolved before any release-labeled work.
 - 2026-08-16 CTO narrowed v3 to **Verifiable State Machine**
   (DECLOG 46) and locked v4 direction as wiring intelligence
   (`docs/v4/INIT_V4.md`, DECLOG 47). No tag. No v4 implementation.
+- 2026-08-17 v4 sprint (branch `v4/intelligence-sprint`): mechanical
+  signature+mapping repair before audit (DECLOG 48); suite 224. Sealed
+  v4h1 one-pass: audit-clean **5/5** (from 15% baseline), probe 0/5,
+  draft_complete **0/5** — strict ≥50% target MISSED (DECLOG 49).
+  Next lever: elaboration/probe class. Set spent.
 

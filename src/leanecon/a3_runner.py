@@ -55,6 +55,8 @@ from leanecon.formalization import (
     classify_gaps,
     formalize_prompt,
     parse_formalize_response,
+    sanitize_core_mapping_rows,
+    sanitize_signature_draft,
     vacuity_warning,
     validate_mapping_report,
     validate_scaffolding_namespace,
@@ -588,10 +590,22 @@ def formalize_claim(
             stash["response"] = response
             stash["parse_error"] = str(exc)
             return (response.output or {}).get("content", "") or ""
+        # v4 lever (DECISION_LOG 48): mechanical signature repair BEFORE
+        # audit, so a known class of violation cannot burn the budget on
+        # identical rejects. The audit gate still runs after this.
+        repaired, repair_notes = sanitize_signature_draft(parsed["statement"])
+        map_repaired, map_notes = sanitize_core_mapping_rows(parsed["mapping_report"])
+        all_notes = repair_notes + map_notes
+        if all_notes:
+            parsed["statement"] = repaired
+            parsed["mapping_report"] = map_repaired
+            stash["repair_notes"] = all_notes
+        else:
+            stash.pop("repair_notes", None)
         stash["parsed"] = parsed
         stash["response"] = response
         stash["parse_error"] = None
-        return parsed["statement"]
+        return repaired
 
     def audit(stmt: str) -> list[str]:
         if stash["parsed"] is None:
@@ -628,6 +642,16 @@ def formalize_claim(
         return "BLOCKED", None
 
     history_payload = [_feedback_as_dict(item) for item in outcome.revision_history]
+    if stash.get("repair_notes"):
+        history_payload.append(
+            {
+                "draft": "(mechanical repair applied before audit)",
+                "static_problems": [],
+                "probe_compiles": None,
+                "probe_stderr": "",
+                "repair_notes": list(stash["repair_notes"]),
+            }
+        )
     parsed = last_clean["parsed"]
     response = last_clean["response"]
 
