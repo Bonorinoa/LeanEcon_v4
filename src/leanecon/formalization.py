@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 
 #: Element kinds that must be mapped (or flagged unmapped) before PROVING.
 MATERIAL_KINDS = {"object", "assumption", "quantifier", "conclusion", "solution", "definition"}
@@ -36,11 +37,11 @@ CORE_IDENTIFIER_RE = re.compile(
     r"^LeanEcon\.Core\.[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+$"
 )
 
-#: Bare-name → fully-qualified Core id, derived from the pinned workspace
-#: (lean_workspace/LeanEcon/Core/*.lean). Used by
-#: ``sanitize_core_mapping_rows`` to promote a bare Core name in a ``core``
-#: mapping row to its FQ form instead of rejecting the whole draft (D1).
-KNOWN_CORE_NAMES: dict[str, str] = {
+#: Fallback bare-name → fully-qualified Core id, used ONLY when the pinned
+#: workspace cannot be scanned (see ``core_names_from_workspace``). Derived
+#: from lean_workspace/LeanEcon/Core/*.lean at 2026-08-17; kept in sync by
+#: the runtime scan whenever the workspace is available.
+_KNOWN_CORE_NAMES_FALLBACK: dict[str, str] = {
     "attainableSet": "LeanEcon.Core.Choice.attainableSet",
     "budgetSet": "LeanEcon.Core.Constraints.budgetSet",
     "budgetSetEndowment": "LeanEcon.Core.Constraints.budgetSetEndowment",
@@ -52,6 +53,44 @@ KNOWN_CORE_NAMES: dict[str, str] = {
     "utility": "LeanEcon.Core.Utility.utility",
     "strictlyIncreasing": "LeanEcon.Core.Utility.strictlyIncreasing",
 }
+
+_DECL_SCAN_RE = re.compile(
+    r"^(?:noncomputable\s+|private\s+|protected\s+|@\[[^\]]*\]\s+)*"
+    r"(?:theorem|def|abbrev|structure|class|instance)\s+([A-Za-z_][A-Za-z0-9_]*)"
+)
+
+
+def core_names_from_workspace(workspace_root: Path | None = None) -> dict[str, str]:
+    """Derive {bare name: FQ Core id} from the pinned workspace Core tree.
+
+    Single source of truth: scans ``lean_workspace/LeanEcon/Core/*.lean``
+    (the same files ``12_core_pin`` digests), so a new Core declaration is
+    picked up automatically and the table can never disagree with the pin.
+    Falls back to the static snapshot only when the scan finds nothing.
+    """
+    root = Path(workspace_root) if workspace_root else _find_workspace_root()
+    if root is None:
+        return dict(_KNOWN_CORE_NAMES_FALLBACK)
+    core_dir = root / "lean_workspace" / "LeanEcon" / "Core"
+    if not core_dir.is_dir():
+        return dict(_KNOWN_CORE_NAMES_FALLBACK)
+    derived: dict[str, str] = {}
+    for path in sorted(core_dir.glob("*.lean")):
+        area = path.stem
+        for line in path.read_text(encoding="utf-8").splitlines():
+            m = _DECL_SCAN_RE.match(line.strip())
+            if m:
+                derived[m.group(1)] = f"LeanEcon.Core.{area}.{m.group(1)}"
+    return derived or dict(_KNOWN_CORE_NAMES_FALLBACK)
+
+
+def _find_workspace_root() -> Path | None:
+    """Walk up from this file to find the repo root containing lean_workspace."""
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / "lean_workspace" / "LeanEcon" / "Core").is_dir():
+            return parent
+    return None
 
 
 def material_element_ids(ei: dict) -> list[tuple[str, str]]:
@@ -492,8 +531,9 @@ def sanitize_core_mapping_rows(
         head = ident.split(" ", 1)[0].strip()
         # strip leading universal/existential binder noise if any
         head = head.lstrip("∀∃").strip()
-        if head in KNOWN_CORE_NAMES:
-            fq = KNOWN_CORE_NAMES[head]
+        core_names = core_names_from_workspace()
+        if head in core_names:
+            fq = core_names[head]
             new_row["lean_identifier"] = fq
             note = (
                 f"core row '{row.get('ei_element_id')}': trimmed "
