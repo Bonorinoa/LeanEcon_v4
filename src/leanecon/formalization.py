@@ -36,6 +36,23 @@ CORE_IDENTIFIER_RE = re.compile(
     r"^LeanEcon\.Core\.[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+$"
 )
 
+#: Bare-name → fully-qualified Core id, derived from the pinned workspace
+#: (lean_workspace/LeanEcon/Core/*.lean). Used by
+#: ``sanitize_core_mapping_rows`` to promote a bare Core name in a ``core``
+#: mapping row to its FQ form instead of rejecting the whole draft (D1).
+KNOWN_CORE_NAMES: dict[str, str] = {
+    "attainableSet": "LeanEcon.Core.Choice.attainableSet",
+    "budgetSet": "LeanEcon.Core.Constraints.budgetSet",
+    "budgetSetEndowment": "LeanEcon.Core.Constraints.budgetSetEndowment",
+    "marketClearing": "LeanEcon.Core.Equilibrium.marketClearing",
+    "competitiveEquilibrium": "LeanEcon.Core.Equilibrium.competitiveEquilibrium",
+    "paretoEfficiency": "LeanEcon.Core.Equilibrium.paretoEfficiency",
+    "weakPreference": "LeanEcon.Core.Preferences.weakPreference",
+    "bundle": "LeanEcon.Core.Primitives.bundle",
+    "utility": "LeanEcon.Core.Utility.utility",
+    "strictlyIncreasing": "LeanEcon.Core.Utility.strictlyIncreasing",
+}
+
 
 def material_element_ids(ei: dict) -> list[tuple[str, str]]:
     """Return [(element_id, kind)] for every material element of the EI.
@@ -143,7 +160,13 @@ def formalize_prompt(ei: dict) -> str:
         "Rules:\n"
         '- Output ONLY a JSON object: {"statement": <theorem signature as Lean text, '
         "e.g. 'theorem name (args) : proposition' — signature ONLY, no proof body>, "
-        '"target_theorem": <theorem name>, "mapping_report": [...]}.\n'
+        '"target_theorem": <theorem name>, "mapping_report": [...]}.\\n'
+        "- FORMAT EXEMPLAR (follow this shape exactly):\\n"
+        "  GOOD: `theorem budget_binds {ι : Type*} [Fintype ι] (p : ι → ℝ) "
+        "(x : ι → ℝ) (hp : ∀ i, p i > 0) (hx : ∀ g, x g ∈ budgetSet p e) : "
+        "∑ g, p g * x g = ∑ g, p g * e g` — ends at the conclusion, no `:=`.\\n"
+        "  BAD:  `theorem t ... : P := by exact ...` or `... := sorry` — proof "
+        "bodies are REJECTED before review.\\n"
         "- HARD: the statement must be a SIGNATURE ONLY. It must end at the "
         "conclusion: `... : <conclusion>` with NO `:=` and NO `by ...` — do not "
         "attach a proof body. Do not use sorry/admit anywhere.\n"
@@ -322,6 +345,175 @@ def validate_scaffolding_namespace(statement: str) -> list[str]:
                     )
                     break
     return problems
+
+
+def sanitize_signature_draft(statement: str) -> tuple[str, list[str]]:
+    """Mechanically repair the known signature-only violations in a draft.
+
+    v4 intelligence sprint (Day 2 lever): the spent-set inventory showed
+    the loop burning its whole budget repeating IDENTICAL rejects
+    (v3h2-A: the same ``:=`` continuation problem on attempts 1-3).
+    The feedback text alone did not change behavior, so the repair is
+    now mechanical and happens BEFORE the audit:
+
+    1. Cut a theorem-style proof body: everything from the first
+       declaration-aware `` :=`` on a signature-only declaration
+       (theorem/lemma/example/axiom) onward.
+    2. Remove any remaining ``sorry``/``admit`` tokens (bodies only;
+       belt-and-braces for inline cases).
+    3. Re-home root-namespace ``def``/``abbrev`` scaffolding under
+       ``namespace A3Scaffolding.<claim_id> ... end`` (D4).
+
+    Returns ``(repaired_statement, notes)``. The audit gate is NOT
+    bypassed: whatever survives still goes through
+    ``validate_statement_text`` + ``validate_scaffolding_namespace``,
+    then the kernel probe and the reviewer. Notes are appended to the
+    revision feedback so the model sees what was fixed mechanically.
+    """
+    lines = statement.splitlines()
+    out: list[str] = []
+    notes: list[str] = []
+    current_decl: str | None = None
+    cut_done = False
+    in_body = False
+
+    # Pass 1: strip proof bodies on signature-only declarations.
+    for raw in lines:
+        stripped = raw.strip()
+        head = _decl_head(stripped)
+        structural = stripped.startswith(("import ", "import\t", "namespace ", "end", "--", "/-"))
+        if in_body:
+            if head is not None or structural:
+                in_body = False
+            else:
+                continue  # still inside the discarded proof body
+        if head is not None:
+            current_decl = head
+        triggered = (
+            not cut_done
+            and not stripped.startswith("import")
+            and current_decl in _SIGNATURE_ONLY
+            and (" := " in raw.rstrip() or raw.rstrip().endswith(":="))
+        )
+        if triggered:
+            idx = raw.find(" :=")
+            out.append(raw[:idx].rstrip())
+            notes.append(
+                "stripped a theorem-style proof body ('... := ...'); "
+                "the statement must be a bare signature"
+            )
+            cut_done = True
+            current_decl = None
+            in_body = True
+            continue
+        out.append(raw)
+    repaired = "\n".join(out)
+    if statement.endswith("\n") and repaired and not repaired.endswith("\n"):
+        repaired += "\n"
+
+    # Pass 2: remove residual sorry/admit tokens.
+    lowered = repaired.lower()
+    for token in _SORRY_TOKENS:
+        if token in lowered:
+            repaired = re.sub(rf"\b{token}\b", "", repaired)
+            lowered = repaired.lower()
+            notes.append(f"removed '{token}' token; sorry/admit are contract violations")
+
+    # Pass 3: re-home root-namespace scaffolding under A3Scaffolding.
+    ns_problems = validate_scaffolding_namespace(repaired)
+    if ns_problems:
+        claim_ns = "A3Scaffolding.repaired"
+        scaffold_lines: list[str] = []
+        body_lines: list[str] = []
+        depth = 0
+        for raw in repaired.splitlines():
+            line = raw.strip()
+            is_scaffold_head = any(
+                line.startswith(kw) and (len(line) == len(kw) or line[len(kw)] in " \t")
+                for kw in _SCAFFOLDING_KEYWORDS
+            )
+            if depth == 0 and is_scaffold_head:
+                scaffold_lines.append(raw)
+                continue
+            if line.startswith(("namespace ", "end")):
+                if depth > 0 or not line.startswith("end"):
+                    body_lines.append(raw)
+                depth += 1 if not line.startswith("end") else -1
+                continue
+            body_lines.append(raw)
+        if scaffold_lines:
+            block = [f"namespace {claim_ns}", *scaffold_lines, f"end {claim_ns}"]
+            rebuilt: list[str] = []
+            inserted = False
+            for raw in body_lines:
+                if not inserted and _decl_head(raw.strip()) in _SIGNATURE_ONLY:
+                    rebuilt.extend(block)
+                    inserted = True
+                rebuilt.append(raw)
+            if not inserted:
+                rebuilt.extend(block)
+            repaired = "\n".join(rebuilt)
+            notes.append(f"moved root-namespace scaffolding under 'namespace {claim_ns}' (D4)")
+
+    return repaired, notes
+
+
+def sanitize_core_mapping_rows(
+    mapping_report: list[dict],
+) -> tuple[list[dict], list[str]]:
+    """Mechanically repair D1 violations in ``core`` mapping rows.
+
+    v4 lever extension (Day 3): the smoke run showed the surviving killer
+    class is core rows whose ``lean_identifier`` is not a bare
+    fully-qualified Core id — the model writes applications
+    (``attainableSet p e``) or bare names (``StrictMono u``). Repair:
+
+    1. Strip an application suffix: ``Name args...`` → first token.
+    2. If the remaining token is a known Core declaration, promote it to
+       its FQ ``LeanEcon.Core.<Area>.<name>`` form.
+    3. If it is NOT known Core vocabulary, downgrade the row to
+       ``local_definition`` — honest: that identifier is not Core.
+
+    Returns ``(repaired_report, notes)``. The audit still runs after this;
+    anything unfixable is rejected exactly as before.
+    """
+    repaired: list[dict] = []
+    notes: list[str] = []
+    for row in mapping_report:
+        if row.get("mapping_kind") != "core":
+            repaired.append(row)
+            continue
+        ident = str(row.get("lean_identifier") or "").strip()
+        if CORE_IDENTIFIER_RE.match(ident):
+            repaired.append(row)
+            continue
+        new_row = dict(row)
+        # 1. application suffix: keep the head term only
+        head = ident.split(" ", 1)[0].strip()
+        # strip leading universal/existential binder noise if any
+        head = head.lstrip("∀∃").strip()
+        if head in KNOWN_CORE_NAMES:
+            fq = KNOWN_CORE_NAMES[head]
+            new_row["lean_identifier"] = fq
+            note = (
+                f"core row '{row.get('ei_element_id')}': trimmed "
+                f"'{ident}' and promoted bare name to '{fq}' (D1)"
+            )
+            notes.append(note)
+            new_row["note"] = ((new_row.get("note") or "") + f" [repaired: {note}]").strip()
+            repaired.append(new_row)
+            continue
+        # 2. not known Core vocabulary → honest downgrade
+        new_row["mapping_kind"] = "local_definition"
+        new_row["lean_identifier"] = head or ident
+        note = (
+            f"core row '{row.get('ei_element_id')}': '{ident}' is not known "
+            "Core vocabulary; downgraded to local_definition (D1)"
+        )
+        notes.append(note)
+        new_row["note"] = ((new_row.get("note") or "") + f" [repaired: {note}]").strip()
+        repaired.append(new_row)
+    return repaired, notes
 
 
 def vacuity_warning(statement: str) -> str | None:

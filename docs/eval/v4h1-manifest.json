@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0.0",
+  "protocol_id": "formalizer-v4h1",
+  "split": "held_out",
+  "cases": [
+    {
+      "case_id": "v4h1-A",
+      "claim_digest": "35c2a7ed27700412147fb07919c0110b44bdc8cb9d0762a4e050e4c9701a6cb1"
+    },
+    {
+      "case_id": "v4h1-B",
+      "claim_digest": "1a1dfdf347b8a350639376e23376ba3ad03ef0188165c8287bbcecc0b9f72a5b"
+    },
+    {
+      "case_id": "v4h1-C",
+      "claim_digest": "d2117854c2d975c470d00d3a945dac2a6ade56527e24fc4a58a4e7f099b035eb"
+    },
+    {
+      "case_id": "v4h1-D",
+      "claim_digest": "5d9b9a92267fd92ea9079f35117414b31c06b059dcbac7f582a5d1cc3faba1ba"
+    },
+    {
+      "case_id": "v4h1-E",
+      "claim_digest": "43795fb0b124de1206f20b162fe074ceef73f16bd81dcae235187592c443f0be"
+    }
+  ]
+}

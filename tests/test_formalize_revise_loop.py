@@ -69,12 +69,14 @@ def _accepted_claim(
 
 
 def _sequence_factory(outputs):
-    """formalize_factory that yields ``outputs`` then repeats the last."""
+    """formalize_factory that yields ``outputs`` (or calls them if callable)
+    then repeats the last."""
     it = iter(outputs)
     last = outputs[-1]
 
     def factory():
-        return next(it, last)
+        item = next(it, last)
+        return item() if callable(item) else item
 
     return factory
 
@@ -99,10 +101,13 @@ def test_a3_runner_imports_revise_loop():
 
 
 def test_contaminated_draft_still_fails_after_loop_and_writes_no_artifact(tmp_path, monkeypatch):
-    """B2 / D2: sorry-carrying draft is rejected by audit even if probe compiles.
+    """v4: a draft the sanitizer CANNOT fix still FAILs with no artifact.
 
-    Single-shot today already fails on the first sorry and never retries.
-    After wiring, three contaminated drafts still FAIL with no artifact.
+    The mechanical repair (DECISION_LOG 48) strips `:=`/sorry bodies, so
+    that class no longer consumes attempts. What must still fail is a
+    violation outside the repair surface: here an UNPARSEABLE formalize
+    response (JSON garbage), which is PROVIDER_INVALID_OUTPUT at every
+    attempt. Audit gate unchanged; budget exact; no artifact.
     """
     monkeypatch.setattr(
         a3_runner,
@@ -110,8 +115,9 @@ def test_contaminated_draft_still_fails_after_loop_and_writes_no_artifact(tmp_pa
         lambda *a, **k: {"compiles": True, "exit_code": 0, "stderr_tail": ""},
     )
     store, claim, events_dir, run_id, log = _accepted_claim(tmp_path, "c-loop-sorry")
-    dirty = formalize_output(f"theorem {C1_THEOREM} : True := by sorry", C1_THEOREM)
-    adapter = FakeAdapter(formalize_factory=_sequence_factory([dirty, dirty, dirty, dirty]))
+    adapter = FakeAdapter(
+        formalize_factory=_sequence_factory([lambda: {"not": "a formalize payload"}] * 4)
+    )
 
     state, candidate = a3_runner.formalize_claim(claim, store, log, run_id, adapter, WORKSPACE)
 
@@ -124,17 +130,38 @@ def test_contaminated_draft_still_fails_after_loop_and_writes_no_artifact(tmp_pa
     detail = failed[-1].get("detail") or {}
     assert detail.get("attempts_used") == MAX_REVISION_ATTEMPTS
     assert detail.get("revision_history")
-    assert any(
-        "sorry" in str(p) for p in (detail["revision_history"][0].get("static_problems") or [])
+
+
+def test_sorry_body_is_repaired_before_audit_not_budget_burning(tmp_path, monkeypatch):
+    """v4 lever: `:= by sorry` is mechanically repaired to the bare
+    signature and accepted WITHOUT consuming extra attempts. The repair
+    note lands in revision_history so the packet shows what happened."""
+    monkeypatch.setattr(
+        a3_runner,
+        "probe_statement_compiles",
+        lambda *a, **k: {"compiles": True, "exit_code": 0, "stderr_tail": ""},
     )
+    store, claim, events_dir, run_id, log = _accepted_claim(tmp_path, "c-loop-repair")
+    dirty = formalize_output(f"theorem {C1_THEOREM} : True := by sorry", C1_THEOREM)
+    adapter = FakeAdapter(formalize_factory=_sequence_factory([dirty]))
+
+    state, candidate = a3_runner.formalize_claim(claim, store, log, run_id, adapter, WORKSPACE)
+
+    assert state == "FORMALIZED"
+    assert candidate is not None
+    assert candidate["statement_text"] == f"theorem {C1_THEOREM} : True"
+    assert len(adapter.requests_seen) == 1
+    repairs = [entry for entry in candidate["revision_history"] if entry.get("repair_notes")]
+    assert repairs, "repair note must be recorded"
 
 
 def test_attempt_budget_is_enforced_no_silent_fourth_provider_call(tmp_path):
-    """A draft that never cleans consumes exactly MAX_REVISION_ATTEMPTS requests."""
+    """A draft that never cleans AND cannot be repaired consumes exactly
+    MAX_REVISION_ATTEMPTS requests (unparseable responses)."""
     store, claim, events_dir, run_id, log = _accepted_claim(tmp_path, "c-loop-budget")
-    dirty = formalize_output("theorem t : True := by sorry", "t")
+    garbage = lambda: {"not": "a formalize payload"}  # noqa: E731
     fourth = formalize_output("theorem t : True", "t")  # would be valid if a 4th ran
-    adapter = FakeAdapter(formalize_factory=_sequence_factory([dirty, dirty, dirty, fourth]))
+    adapter = FakeAdapter(formalize_factory=_sequence_factory([garbage, garbage, garbage, fourth]))
 
     state, candidate = a3_runner.formalize_claim(claim, store, log, run_id, adapter, WORKSPACE)
 
@@ -147,12 +174,15 @@ def test_attempt_budget_is_enforced_no_silent_fourth_provider_call(tmp_path):
     assert len(payloads) == MAX_REVISION_ATTEMPTS
 
 
-def test_attempt_two_success_records_revision_attempts_equals_two(tmp_path):
-    """Dirty attempt 1, audit-clean attempt 2 → FORMALIZED + revision_attempts=2."""
+def test_repairable_dirty_then_clean_still_records_two_attempts(tmp_path):
+    """v4: attempt 1 needs NO repair-free pass — a dirty-but-repairable
+    draft is accepted at attempt 1; a genuinely different clean second
+    draft only happens if attempt 1 was unparseable. Here: attempt 1
+    unparseable, attempt 2 clean → revision_attempts == 2."""
     store, claim, events_dir, run_id, log = _accepted_claim(tmp_path, "c-loop-ok2")
-    dirty = formalize_output("theorem t : True := by sorry", "t")
+    garbage = {"not": "a formalize payload"}
     clean = formalize_output("theorem t : True", "t")
-    adapter = FakeAdapter(formalize_factory=_sequence_factory([dirty, clean]))
+    adapter = FakeAdapter(formalize_factory=_sequence_factory([lambda: garbage, clean]))
 
     state, candidate = a3_runner.formalize_claim(claim, store, log, run_id, adapter, WORKSPACE)
 
@@ -160,14 +190,17 @@ def test_attempt_two_success_records_revision_attempts_equals_two(tmp_path):
     assert candidate is not None
     assert candidate["revision_attempts"] == 2
     assert candidate["target_theorem"] == "t"
-    assert len(candidate["revision_history"]) == 2
-    assert candidate["revision_history"][0]["static_problems"]
+    assert len(candidate["revision_history"]) >= 2
     formal = store.read_formal("c-loop-ok2", store.formal_revs("c-loop-ok2")[-1])
     assert formal["revision_attempts"] == 2
     assert len(adapter.requests_seen) == 2
     # Second request must have been given prior feedback (kernel/static).
     second_prompt = adapter.requests_seen[1]["payload"]["prompt"]
-    assert "sorry" in second_prompt.lower() or "static" in second_prompt.lower()
+    assert (
+        "sorry" in second_prompt.lower()
+        or "static" in second_prompt.lower()
+        or "feedback" in second_prompt.lower()
+    )
 
 
 def test_audit_clean_probe_fail_retries_then_keeps_formalized(tmp_path, monkeypatch):

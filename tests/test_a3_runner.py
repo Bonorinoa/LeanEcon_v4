@@ -396,9 +396,9 @@ def test_malformed_interpret_output_is_failed(tmp_path):
 
 
 def test_formalize_rejects_statement_with_sorry(tmp_path):
-    """Walkthrough hardening: a formalizer statement carrying sorry/admit or
-    an attached proof body is a hard contract violation — FAILED with
-    PROVIDER_INVALID_OUTPUT, and NO formal artifact is written."""
+    """v4: a violation OUTSIDE the repair surface (invalid mapping_kind)
+    is FAILED with PROVIDER_INVALID_OUTPUT and NO formal artifact. The
+    sorry/`:=`/D1 classes themselves are repaired before audit."""
     store = ArtifactStore(tmp_path)
     claim = ClaimRecord(claim_id="c-sorry", revision=1, source_text="claim", data_class="PROJECT")
     store.save_claim(claim)
@@ -408,10 +408,13 @@ def test_formalize_rejects_statement_with_sorry(tmp_path):
     store.save_claim(claim)
     events_dir = tmp_path / "events"
     run_id, log = a3_runner._new_run(events_dir)
-    from tests.conftest import FakeAdapter
+    from tests.conftest import FakeAdapter, complete_mapping_report
+
+    bad_report = complete_mapping_report()
+    bad_report[0]["mapping_kind"] = "not_a_kind"
 
     def factory():
-        return formalize_output(f"theorem {C1_THEOREM} : True := by sorry", C1_THEOREM)
+        return formalize_output(f"theorem {C1_THEOREM} : True", C1_THEOREM, report=bad_report)
 
     state, candidate = a3_runner.formalize_claim(
         claim, store, log, run_id, FakeAdapter(formalize_factory=factory), WORKSPACE
@@ -427,7 +430,9 @@ def test_formalize_rejects_statement_with_sorry(tmp_path):
     ]
     assert any(
         r.get("reason_codes") == ["PROVIDER_INVALID_OUTPUT"]
-        and "statement_problems" in r.get("detail", {})
+        and (
+            "statement_problems" in r.get("detail", {}) or "mapping_problems" in r.get("detail", {})
+        )
         for r in records
     )
 
@@ -505,14 +510,22 @@ def test_formalize_rejection_keeps_previous_rev(tmp_path):
     store.save_claim(claim)
     assert claim.formal_rev is not None
 
-    # the second attempt is rejected -> FAILED, previous rev kept
+    # the second attempt is rejected -> FAILED, previous rev kept.
+    # v4: the rejection uses a violation OUTSIDE the repair surface
+    # (invalid mapping_kind), since `:= by sorry` and D1 core rows are
+    # now repaired.
+    from tests.conftest import complete_mapping_report
+
+    bad_report = complete_mapping_report()
+    bad_report[0]["mapping_kind"] = "not_a_kind"
+
     state, candidate = a3_runner.formalize_claim(
         claim,
         store,
         log,
         run_id,
         FakeAdapter(
-            formalize_factory=lambda: formalize_output("theorem t2 : True := by sorry", "t2")
+            formalize_factory=lambda: formalize_output("theorem t2 : True", "t2", report=bad_report)
         ),
         WORKSPACE,
     )
@@ -600,9 +613,9 @@ def test_formalize_probe_and_vacuity_recorded(tmp_path, monkeypatch):
 
 
 def test_formalize_rejects_root_namespace_scaffolding(tmp_path):
-    """A candidate whose A3-local scaffolding sits at the root namespace is
-    rejected pre-store (PROVIDER_INVALID_OUTPUT) — the fwt1 'abbrev Bundle'
-    confound removed EARLIER (D4)."""
+    """v4: a violation OUTSIDE the repair surface still FAILs pre-store
+    with PROVIDER_INVALID_OUTPUT and no artifact. D1 core rows and root
+    scaffolding are now repaired; an invalid mapping_kind is not."""
     store = ArtifactStore(tmp_path)
     claim = ClaimRecord(claim_id="c-d4", revision=1, source_text="claim", data_class="PROJECT")
     store.save_claim(claim)
@@ -612,19 +625,20 @@ def test_formalize_rejects_root_namespace_scaffolding(tmp_path):
     store.save_claim(claim)
     events_dir = tmp_path / "events"
     run_id, log = a3_runner._new_run(events_dir)
-    from tests.conftest import FakeAdapter
+    from tests.conftest import FakeAdapter, complete_mapping_report
 
-    statement = "abbrev Bundle := ℝ\n\ntheorem t : True"
+    bad_report = complete_mapping_report()
+    bad_report[0]["mapping_kind"] = "not_a_kind"
+
+    statement = "theorem t : True"
     state, candidate = a3_runner.formalize_claim(
         claim,
         store,
         log,
         run_id,
-        FakeAdapter(formalize_factory=lambda: formalize_output(statement, "t")),
+        FakeAdapter(formalize_factory=lambda: formalize_output(statement, "t", report=bad_report)),
         WORKSPACE,
     )
-    claim.state = state
-    store.save_claim(claim)
     assert state == "FAILED"
     assert candidate is None
     assert len(store.formal_revs("c-d4")) == 0  # no artifact pollution
