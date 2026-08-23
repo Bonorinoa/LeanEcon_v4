@@ -43,6 +43,7 @@ from leanecon.claim_store import (
     new_run_id,
 )
 from leanecon.data_policy import contains_gold
+from leanecon.probe_repair import diagnose as probe_diagnose
 from leanecon.events import (
     EVENT_CLAIM_STATE_CHANGED,
     EVENT_DIAGNOSTIC_RESULT,
@@ -524,7 +525,14 @@ def _feedback_as_dict(item: Feedback) -> dict:
 
 
 def _revision_feedback_block(history: list[Feedback]) -> str:
-    """Verbatim prior Feedback for the next formalize prompt."""
+    """Verbatim prior Feedback for the next formalize prompt.
+
+    Phase 2 (DECISION_LOG 51/D2): when the LAST attempt carried a failed
+    compile probe, append one deterministic Diagnosis directive
+    (classified failure + static Lean fact) so the next attempt is
+    class-directed instead of raw-stderr guessing. Audit-failed and
+    fully-clean histories render exactly as before.
+    """
     lines = [
         "Prior kernel/static feedback from earlier attempts in this formalize call.",
         "Revise the statement. Do not repeat the same contract violations.",
@@ -540,6 +548,9 @@ def _revision_feedback_block(history: list[Feedback]) -> str:
         if item.probe_stderr:
             lines.append(f"  probe_stderr: {item.probe_stderr}")
         lines.append("")
+    diagnosis = probe_diagnose(_feedback_as_dict(history[-1])) if history else None
+    if diagnosis:
+        lines.append(diagnosis)
     return "\n".join(lines)
 
 
@@ -553,10 +564,20 @@ def formalize_claim(
 ) -> tuple[str, dict | None]:
     """Live formalize: bounded revise_loop, then existing store/lifecycle.
 
-    INIT_V3 D2: retry only while ``audit`` fails. An audit-clean statement is
-    FORMALIZED even if the compile probe fails. ``revise_loop.accepted``
-    (audit ∧ real probe) is not the FORMALIZED predicate — the loop probe
-    is a dummy so the harness exits on first audit-clean draft.
+    An audit-clean statement is FORMALIZED even if the compile probe
+    fails — ``revise_loop.accepted`` (audit ∧ real probe) is deliberately
+    NOT the FORMALIZED predicate; the reviewer owns the statement and the
+    probe outcome is recorded as an evaluation signal.
+
+    History correction (2026-08-23, Phase 2): earlier prose here claimed
+    the loop probe was a dummy so the harness "exits on first audit-clean
+    draft." False since the v3 wire-up: the loop runs the REAL
+    ``probe_statement_compiles`` inside the normal budget (artifact
+    evidence: v4smk/v4h1 records show 3 audit-clean attempts with all
+    probes False). Budget policy is unchanged (D2): probe repair rides
+    the same MAX_REVISION_ATTEMPTS=3 loop; Phase 2 adds a deterministic
+    class-directed Diagnosis to the feedback after a failed probe
+    (``leanecon.probe_repair``; docs/v3.5/experiments/L1-probe-repair-card.md).
     D5: PROVIDER_UNAVAILABLE → BLOCKED immediately (not an attempt).
     """
     ei = store.read_ei(claim.claim_id, claim.accepted_ei_rev)
