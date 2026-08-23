@@ -71,3 +71,55 @@ audit_clean_rate / elaborates_rate split, which is why DL 52 froze it.
 
 Attribution: Hermes Agent (Nous Research) under CTO direction.
 CTO remains the sole semantic approver.
+
+---
+
+## Actuals (one pass, 2026-08-23, post-`5f60ee2`; set now SPENT)
+
+| # | Verdict | Actual |
+|---|---|---|
+| 1 | ⚪ N/A | preflight script no longer exists; provider liveness proven by A's interpret call |
+| 2 | ✅ | ingest ×3 DRAFT PROJECT |
+| 3 | ✅ | interpret ×3 REVIEW_REQUIRED (A,B ambiguous rows; C none_noted → acked) |
+| 4 | ✅ | review ×3 ACCEPTED (hermes/ai) |
+| 5 | ✅ EXCEEDED | audit-clean **3/3**, all attempts_to_valid=1 |
+| 6 | ✅ | zero identical static-reject loops (zero static problems anywhere) |
+| 7 | ✅ | **Diagnosis fired twice**: before A-attempt-2 (`instance_synthesis`) and before B-attempts-2,3 |
+| 8a | ✅ | both recomputed blocks carry the exact classified directive |
+| 8b | ⚠️ SPLIT | letter-HIT (B's class sequence unclassified→type_mismatch→type_mismatch is not identical on *every* attempt) but spirit-MISS: B repeated the *identical* error (same position 24:41, `bundleValue p (e i)` passing `e i : ι` where `ι → ℝ` expected) on attempts 2→3 with the directive present. Recorded both ways |
+| 9 | ✅ 3/3 | C True @0.65 ✓ · A True @0.45 ✓ · B False @0.60 ✓ |
+| 10 | ✅ **HIT** | **draft_complete 2/3 = 0.667 ≥ 0.60 — earn bar met** (predicted at 0.40 confidence) |
+| 11 | ✅ | verify not run |
+
+## Case detail
+
+- **A** (`v35h1_A`, strict monotonicity): attempt 1 probe False,
+  class `instance_synthesis` — model invented `Bundle goods` and Lean
+  couldn't synthesize `Preorder (Bundle goods)`. Diagnosis directive
+  delivered ("provide the missing instance … or restrict the claim's
+  objects so a Mathlib instance applies"); attempt 2 **compiles**.
+  **First live probe-failure→recovery pair under the lever.** Temporal
+  association confirmed; causality at n=1 is not claimed.
+- **B** (CE bundle ∈ budget set): attempt 1 failed for a NON-model
+  reason — stale `LeanEcon.Core.Constraints.budgetSet.olean` object
+  file (workspace build hygiene, threat to validity; the `unclassified`
+  directive correctly refused to guess a fix class). Attempts 2–3 made
+  the same self-inflicted type error despite the `type_mismatch`
+  directive. Final probe False ⇒ draft_complete false. The heavy-
+  structure risk profile predicted for B materialized.
+- **C** (`expenditure_nonneg`): single attempt, probe True, clean.
+
+## Verdict
+
+- **Earn predicate (frozen METRICS.md): audit_clean 3/3 ∧ elaborates
+  2/3 ⇒ draft_complete 2/3 = 0.667 ≥ 0.60 — MET on fresh sealed
+  holdout `v35h1`.** Small n, one pass; the number is the number.
+- Lever status upgrades from "fixture-only" to "one live
+  recovery pair + one honest non-repair." Both directions recorded.
+- Infra note for next holdout: `lake build` freshness check BEFORE the
+  pass (B attempt 1 burned on stale olean).
+- Set SPENT. No re-runs, no tuning between cases.
+
+Payload: `docs/eval/v35h1-score.json`.
+
+Tally: 9 HIT (incl. 1 EXCEEDED) · 1 SPLIT (recorded both ways) · 1 N/A.

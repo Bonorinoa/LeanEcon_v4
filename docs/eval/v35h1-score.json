@@ -1,0 +1,46 @@
+{
+  "v35h1-A": {
+    "attempts": 2,
+    "audit_clean": true,
+    "first_try": true,
+    "final_probe": true,
+    "classes": [
+      "instance_synthesis"
+    ],
+    "diagnosis_fired": true,
+    "diag_lines": [
+      "Diagnosis (elaboration): instance synthesis failed. Provide the missing instance as an explicit binder argument (`[inst : Fintype \u03b9]`) or restrict the claim's o"
+    ],
+    "vacuity": null,
+    "stderr_final": ""
+  },
+  "v35h1-B": {
+    "attempts": 3,
+    "audit_clean": true,
+    "first_try": true,
+    "final_probe": false,
+    "classes": [
+      "unclassified",
+      "type_mismatch",
+      "type_mismatch"
+    ],
+    "diagnosis_fired": true,
+    "diag_lines": [
+      "Diagnosis (elaboration): kernel rejected the statement with an error outside the known classes. Quote the full stderr verbatim in your revision reasoning; do no",
+      "Diagnosis (elaboration): type mismatch. Re-check each hypothesis's stated type against how it is used in the conclusion; align bundle/goods index types (`\u03b9 \u2192 \u211d`"
+    ],
+    "vacuity": null,
+    "stderr_final": "` but is expected to have type\n  \u03b9 \u2192 \u211d\nof sort `Type u_1` in the application\n  bundleValue p (e i)\n/Users/bonorinoa/Desktop/leanecon_v4_work/lean_workspace/.a3-candidates/probe/probe_1787522058.lean:24:41: error: Application type mismatch: The argument\n  e i\nhas type\n  \u211d\nof sort `Type` but is expected to have type\n  \u03b9 \u2192 \u211d\nof sort `Type u_1` in the application\n  budgetSetRelativeToEndowment p (e i)"
+  },
+  "v35h1-C": {
+    "attempts": 1,
+    "audit_clean": true,
+    "first_try": true,
+    "final_probe": true,
+    "classes": [],
+    "diagnosis_fired": false,
+    "diag_lines": [],
+    "vacuity": null,
+    "stderr_final": ""
+  }
+}
