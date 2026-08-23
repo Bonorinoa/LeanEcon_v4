@@ -1,0 +1,193 @@
+{
+  "generated_at": "2026-08-23T19:23:36Z",
+  "instrument": "probe_statement_compiles (fixed wrap, 2026-08-17)",
+  "note": "dev diagnostic; sealed sets excluded; not an earn number",
+  "model_draft": {
+    "n": 8,
+    "elaborates": 4,
+    "elaborates_rate": 0.5,
+    "failure_histogram": {
+      "binder_annotation": 2,
+      "syntax": 2
+    }
+  },
+  "reviewer_authored": {
+    "n": 5,
+    "elaborates": 4,
+    "elaborates_rate": 0.8,
+    "failure_histogram": {
+      "ambiguity": 1
+    }
+  },
+  "results": [
+    {
+      "digest": "e80a6d8eab8a",
+      "claim_ids": [
+        "c1"
+      ],
+      "population": "model_draft",
+      "stored_probe_compiles": null,
+      "model": "labs-leanstral-1-5",
+      "compiles": false,
+      "exit_code": 1,
+      "failure_class": "binder_annotation",
+      "stderr_head": "/Users/bonorinoa/Desktop/leanecon_v4_work/lean_workspace/.a3-candidates/probe/probe_1787512957.lean:4:18: error: invalid binder annotation, type is not a class instance\n  ?m.2\n\nNote: Use the command `"
+    },
+    {
+      "digest": "7fa0787bab59",
+      "claim_ids": [
+        "c2"
+      ],
+      "population": "model_draft",
+      "stored_probe_compiles": null,
+      "model": "labs-leanstral-1-5",
+      "compiles": false,
+      "exit_code": 1,
+      "failure_class": "binder_annotation",
+      "stderr_head": "/Users/bonorinoa/Desktop/leanecon_v4_work/lean_workspace/.a3-candidates/probe/probe_1787512979.lean:3:49: error: invalid binder annotation, type is not a class instance\n  Set \u03b1\n\nNote: Use the command "
+    },
+    {
+      "digest": "51d13063002d",
+      "claim_ids": [
+        "c3"
+      ],
+      "population": "model_draft",
+      "stored_probe_compiles": null,
+      "model": "labs-leanstral-1-5",
+      "compiles": true,
+      "exit_code": 0,
+      "failure_class": "sorry",
+      "stderr_head": "/Users/bonorinoa/Desktop/leanecon_v4_work/lean_workspace/.a3-candidates/probe/probe_1787512982.lean:3:8: warning: declaration uses `sorry`"
+    },
+    {
+      "digest": "881063b079a6",
+      "claim_ids": [
+        "c4"
+      ],
+      "population": "model_draft",
+      "stored_probe_compiles": null,
+      "model": "labs-leanstral-1-5",
+      "compiles": true,
+      "exit_code": 0,
+      "failure_class": "clean_or_no_signal",
+      "stderr_head": ""
+    },
+    {
+      "digest": "2595eb78bcbd",
+      "claim_ids": [
+        "fwt1"
+      ],
+      "population": "model_draft",
+      "stored_probe_compiles": false,
+      "model": "labs-leanstral-1-5",
+      "compiles": true,
+      "exit_code": 0,
+      "failure_class": "clean_or_no_signal",
+      "stderr_head": ""
+    },
+    {
+      "digest": "62606a1633b0",
+      "claim_ids": [
+        "oos1"
+      ],
+      "population": "model_draft",
+      "stored_probe_compiles": false,
+      "model": "labs-leanstral-1-5",
+      "compiles": false,
+      "exit_code": 1,
+      "failure_class": "syntax",
+      "stderr_head": "/Users/bonorinoa/Desktop/leanecon_v4_work/lean_workspace/.a3-candidates/probe/probe_1787512993.lean:3:577: error: unexpected token ':'; expected command"
+    },
+    {
+      "digest": "ba83f78ac61c",
+      "claim_ids": [
+        "oos2"
+      ],
+      "population": "reviewer_authored",
+      "stored_probe_compiles": null,
+      "model": null,
+      "compiles": false,
+      "exit_code": 1,
+      "failure_class": "ambiguity",
+      "stderr_head": "_workspace/.a3-candidates/probe/probe_1787512996.lean:6:4: warning: Ambiguous use of subset notation: the type is a metavariable.\nConsider adding a type annotation, e.g. `(_ : Set _) \u2286 _`.\nThe term wi"
+    },
+    {
+      "digest": "ffdcf09bc837",
+      "claim_ids": [
+        "oos3"
+      ],
+      "population": "reviewer_authored",
+      "stored_probe_compiles": null,
+      "model": null,
+      "compiles": true,
+      "exit_code": 0,
+      "failure_class": "unclassified",
+      "stderr_head": "/Users/bonorinoa/Desktop/leanecon_v4_work/lean_workspace/.a3-candidates/probe/probe_1787513000.lean:7:6: warning: Variable name `\u03c3` is not explicitly referenced.\n\nThe binding can be removed (if unused"
+    },
+    {
+      "digest": "3cfe2948d6d0",
+      "claim_ids": [
+        "v2p1-A"
+      ],
+      "population": "reviewer_authored",
+      "stored_probe_compiles": false,
+      "model": null,
+      "compiles": true,
+      "exit_code": 0,
+      "failure_class": "clean_or_no_signal",
+      "stderr_head": ""
+    },
+    {
+      "digest": "bc3adb9a7bcb",
+      "claim_ids": [
+        "v2p1-B"
+      ],
+      "population": "reviewer_authored",
+      "stored_probe_compiles": false,
+      "model": null,
+      "compiles": true,
+      "exit_code": 0,
+      "failure_class": "clean_or_no_signal",
+      "stderr_head": ""
+    },
+    {
+      "digest": "55d1e7e9d018",
+      "claim_ids": [
+        "v2p1-C"
+      ],
+      "population": "reviewer_authored",
+      "stored_probe_compiles": false,
+      "model": null,
+      "compiles": true,
+      "exit_code": 0,
+      "failure_class": "clean_or_no_signal",
+      "stderr_head": ""
+    },
+    {
+      "digest": "58d8b388a49a",
+      "claim_ids": [
+        "v3p1-A"
+      ],
+      "population": "model_draft",
+      "stored_probe_compiles": false,
+      "model": "labs-leanstral-1-5",
+      "compiles": true,
+      "exit_code": 0,
+      "failure_class": "clean_or_no_signal",
+      "stderr_head": ""
+    },
+    {
+      "digest": "ae5c102342cd",
+      "claim_ids": [
+        "v3p1-C"
+      ],
+      "population": "model_draft",
+      "stored_probe_compiles": false,
+      "model": "labs-leanstral-1-5",
+      "compiles": false,
+      "exit_code": 1,
+      "failure_class": "syntax",
+      "stderr_head": "/Users/bonorinoa/Desktop/leanecon_v4_work/lean_workspace/.a3-candidates/probe/probe_1787513013.lean:3:345: error: unexpected token 'in'; expected ','"
+    }
+  ]
+}
