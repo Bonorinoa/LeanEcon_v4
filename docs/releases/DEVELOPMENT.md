@@ -6,10 +6,10 @@ This worktree is the **v3.0.0 release** (Verifiable State Machine).
 
 | Item | Value |
 |---|---|
-| Package version | `3.5.0.dev0` |
-| Builder identity | `leanecon-a3-3.5.0.dev0` |
-| Latest supported release | `v3.0.0` (tagged on main) |
-| Next development line | v3.5 intelligence (P2 elaboration lever; `docs/v3.5/SPRINT-PLAN.md`) |
+| Package version | `3.5.0` |
+| Builder identity | `leanecon-a3-3.5.0` |
+| Latest supported release | `v3.5.0` |
+| Next development line | v4 agentic (intelligence sprint shipped as v3.5.0; `docs/v3.5/SPRINT-PLAN.md`) |
 
 The original draft-complete target was missed (2/13 ≈ 15%) and was
 narrowed out of the v3 promise (DECISION_LOG 46). v4h1 measured

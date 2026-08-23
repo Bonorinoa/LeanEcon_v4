@@ -83,7 +83,7 @@ from leanecon.verifier import (
     verify_candidate,
 )
 
-BUILDER_IDENTITY = "leanecon-a3-3.5.0.dev0"
+BUILDER_IDENTITY = "leanecon-a3-3.5.0"
 
 REPO_ROOT = find_repo_root()
 WORKSPACE = REPO_ROOT / "lean_workspace"
