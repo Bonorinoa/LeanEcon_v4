@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "protocol_id": "formalizer-v35h1",
+  "split": "held_out",
+  "cases": [
+    {
+      "case_id": "v35h1-A",
+      "claim_digest": "9f1d81143534924d7f228fbed50f5d7bab8d76b69a8f4e56f2d4a203b59eb341"
+    },
+    {
+      "case_id": "v35h1-B",
+      "claim_digest": "afa8a158cb80b03abab690001ca0ec4c2aa87a61c7d57cb28a71df045c1ec335"
+    },
+    {
+      "case_id": "v35h1-C",
+      "claim_digest": "721ecd898035429b234d86d9cbb320442372dc741bbe0de0290e16b0ade069cc"
+    }
+  ]
+}

@@ -5,9 +5,16 @@ collaborator that takes English economic claims through reviewed interpretation,
 Lean 4 formalization, and kernel-checked verification — producing auditable
 traces and verification bundles rather than bare "compiles" claims.
 
-**Current supported release: v2.0.0 Phoenix** on `main`. This worktree
-is package `3.0.0.dev0` / builder `leanecon-a3-3.0.0.dev0` — a
-development line, not a tag. See `docs/releases/DEVELOPMENT.md`.
+**Current supported release: v3.5.0 "Measured Elaboration"** (tagged on
+`main` after PR #20 merges; see the release rule in
+`docs/releases/DEVELOPMENT.md`). The `main` branch carries package
+`3.5.0` / builder `leanecon-a3-3.5.0`. See `docs/releases/DEVELOPMENT.md`
+and `docs/releases/v3.5.0.md`.
+
+> Sequencing note while PR #20 is open: this worktree says final
+> `3.5.0`; the tag `v3.5.0` is created at main HEAD immediately
+> post-merge, per the earn rule ("tag only with
+> `docs/releases/vX.Y.Z.md`" — satisfied).
 
 ## Product thesis
 
@@ -98,7 +105,8 @@ v3 claim. Wiring intelligence into those transitions is **v4**
 | **v0.3** eval skeleton | ✅ shipped |
 | **v1.0.0** supported verified workflow | ✅ shipped |
 | **v2.0.0 Phoenix** assist foundation | ✅ shipped on `main` — AI reviewer exercised; `revise_loop` + `skeleton` were libraries at tag |
-| **v3 Verifiable State Machine** (unreleased `3.0.0.dev0`) | lifecycle is the product; loop + scorer + skeleton + sealed eval. 60–70% **narrowed off** (2/13). Tag pending |
+| **v3.0.0 Verifiable State Machine** | ✅ shipped & tagged 2026-08-22 (PR #19) — lifecycle is the product; loop + scorer + skeleton + sealed eval; draft promise narrowed off (2/13), recorded honestly |
+| **v3.5.0 Measured Elaboration** | ✅ shipped (PR #20) — sealed `v35h1` draft_complete **2/3 ≥ 0.60**; class-directed probe-repair Diagnosis; P1–P6 fidelity ontology + frozen metrics (DECISION_LOG 50–54) |
 
 Evidence packets: `docs/releases/`. Decision log: `docs/gate3/DECISION_LOG.md`.
 

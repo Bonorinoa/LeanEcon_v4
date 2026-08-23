@@ -43,6 +43,51 @@ def static_reject_class(problems: list[str] | None) -> str | None:
     return "other"
 
 
+#: Fidelity-property mapping (DECISION_LOG 50): every legacy bucket is a
+#: *measurement of* one property violation. P1 surface legality,
+#: P3 contract (D1/D4/mapping), P4 substance, P5 semantic fidelity.
+BUCKET_PROPERTY: dict[str, str] = {
+    "sorry": "P1",
+    "proof_body": "P1",
+    "d1": "P3",
+    "d4": "P3",
+    "other": "P1",
+}
+
+_PROBE_CLASSES: tuple[tuple[str, str], ...] = (
+    ("declaration uses `sorry`", "sorry"),
+    ("declaration uses 'sorry'", "sorry"),
+    ("unknown identifier", "unknown_identifier"),
+    ("unknown constant", "unknown_identifier"),
+    ("invalid binder annotation", "binder_annotation"),
+    ("ambiguous use of", "ambiguity"),
+    ("could not synthesize", "instance_synthesis"),
+    ("failed to synthesize", "instance_synthesis"),
+    ("type mismatch", "type_mismatch"),
+    ("application type mismatch", "type_mismatch"),
+    ("unknown universe level", "unknown_universe"),
+    ("maximum recursion depth", "recursion_depth"),
+    ("unexpected token", "syntax"),
+)
+
+
+def classify_probe_failure(stderr_tail: str | None) -> str:
+    """Deterministic subclass of a failed compile probe (P2 diagnosis).
+
+    Ordered: identity errors before type mismatches, because an unknown
+    Core id also produces follow-on type noise. Empty/None means the
+    probe never produced a signal; anything unmatched stays honest as
+    ``unclassified`` rather than being forced into a bucket.
+    """
+    text = (stderr_tail or "").strip().lower()
+    if not text:
+        return "clean_or_no_signal"
+    for needle, klass in _PROBE_CLASSES:
+        if needle in text:
+            return klass
+    return "unclassified"
+
+
 def _history(case: dict) -> list[dict]:
     return list(case.get("revision_history") or [])
 
@@ -128,6 +173,16 @@ def score_case(case: dict) -> dict[str, Any]:
         if attempts is None and history:
             reject = static_reject_class(history[-1].get("static_problems"))
     probe = case.get("statement_probe") or {}
+    # P-ontology columns (DECISION_LOG 50). fidelity_property labels the
+    # violated property when the claim never produced an audit-clean
+    # attempt; a clean-then-probed claim that fails only at the kernel
+    # signal is a P2 (elaboration) measurement.
+    if reject:
+        fidelity = BUCKET_PROPERTY.get(reject, "P1")
+    elif attempts is not None and not _draft_complete(case, first_clean):
+        fidelity = "P2"
+    else:
+        fidelity = None
     return {
         "claim_id": case.get("claim_id"),
         "state": case.get("state"),
@@ -135,7 +190,13 @@ def score_case(case: dict) -> dict[str, Any]:
         "first_try_valid": first_try_valid,
         "attempts_to_valid": attempts,
         "static_reject_class": reject,
+        "fidelity_property": fidelity,
         "probe_compiles": probe.get("compiles") if probe else None,
+        "probe_failure_class": (
+            classify_probe_failure(probe.get("stderr_tail"))
+            if probe and not probe.get("compiles")
+            else None
+        ),
         "vacuity_flag": _vacuity_flag(case),
         "inversion_flag": _inversion_flag(case.get("statement_text")),
         "d1_core_fq": _d1_core_fq(case),
@@ -156,19 +217,38 @@ def score_fixture_dir(root: Path | str) -> dict[str, Any]:
     first_try = sum(1 for row in cases if row["first_try_valid"])
     draft = sum(1 for row in cases if row["draft_complete"])
     sole = sum(1 for row in cases if row["sole_author_verified"])
+    audit_clean = sum(1 for row in cases if row["attempts_to_valid"] is not None)
+    elaborates = sum(1 for row in cases if row["probe_compiles"])
     histogram: dict[str, int] = {}
     for row in cases:
         klass = row["static_reject_class"]
         if klass:
             histogram[klass] = histogram.get(klass, 0) + 1
+    # D5: the strict conjunction split into its components, so a partial
+    # result (e.g. v4h1: 100% clean, 0% elaborates) is legible without
+    # narration. draft_complete stays the earn predicate.
+    fidelity_histogram: dict[str, int] = {}
+    for row in cases:
+        prop = row.get("fidelity_property")
+        if prop:
+            fidelity_histogram[prop] = fidelity_histogram.get(prop, 0) + 1
+    elaboration_histogram: dict[str, int] = {}
+    for row in cases:
+        klass = row.get("probe_failure_class")
+        if klass and klass != "clean_or_no_signal":
+            elaboration_histogram[klass] = elaboration_histogram.get(klass, 0) + 1
     return {
         "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "n": n,
         "provider_calls": 0,
         "first_try_valid_rate": (first_try / n) if n else 0.0,
         "draft_complete_rate": (draft / n) if n else 0.0,
+        "audit_clean_rate": (audit_clean / n) if n else 0.0,
+        "elaborates_rate": (elaborates / n) if n else 0.0,
         "sole_author_verified_rate": (sole / n) if n else 0.0,
         "static_reject_histogram": histogram,
+        "fidelity_histogram": fidelity_histogram,
+        "elaboration_histogram": elaboration_histogram,
         "cases": cases,
     }
 
