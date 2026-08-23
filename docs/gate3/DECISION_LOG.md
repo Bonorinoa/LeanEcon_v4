@@ -334,3 +334,18 @@ Resolutions incorporated:
   for v3 and moved to v4 (item 47). v3 names the machine, not the
   draft rate.
 
+---
+
+# v3.5 intelligence sprint (branch `v35/intelligence-sprint`, 2026-08-23)
+
+**Status:** recorded on `v35/intelligence-sprint` (cut from
+`main` @ `12e267c` = tag `v3.0.0`). Phase order approved by the CTO
+in chat 2026-08-23 ("i approve the phase order"); each later phase
+still passes its own gate (G1–G6 in `docs/v3.5/SPRINT-PLAN.md`).
+
+| # | Item | Disposition |
+|---|---|---|
+| 50 | Fidelity-property ontology **P1–P6** (surface legality / elaboration / contract / substance / semantic fidelity / proof adequacy — BRIEF §4) replaces the planned observed-failure taxonomy as the failure-labeling object. Observed rejects are measurements *of* property violations, not categories. New errors are labeled by violated P; if none fits, the object is amended. Mechanical repair may touch P1 and mechanical-P3 only, never conclusions (P4/P5) | **ADOPTED** (CTO directive against observation-derived taxonomies) |
+| 51 | v3.5.0 sprint approved: phases G0–G6 (`docs/v3.5/SPRINT-PLAN.md`) targeting ≥60% audit-clean ∧ elaborates on a fresh sealed holdout. Sub-decisions: **D3** consultative `opinion` side-door PARKED to v4; **D4** formalize pin stays `labs-leanstral-1-5`, model swaps only on sealed evidence; **D2** probe-repair consumes the normal `MAX_REVISION_ATTEMPTS=3` budget — revisit only with Phase-1 truncation evidence | **APPROVED 2026-08-23** |
+| 52 | Metrics re-audit rides Phase 1 (D5): map scorer buckets onto P1–P6, harden string-matched `static_reject_class`, split `draft_complete` into `audit_clean_rate` / `elaborates_rate` so partial results stay legible, re-freeze definitions as `docs/v3.5/METRICS.md`. Last metric-layer change was 2026-08-13 (probe-wrap); both repair levers postdate it | **APPROVED as part of Phase order** |
+

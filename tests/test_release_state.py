@@ -7,10 +7,18 @@ from leanecon.release_state import check_release_state
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+def _package_version() -> str:
+    import tomllib
+
+    data = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    return data["project"]["version"]
+
+
 def test_current_development_state_is_truthful():
-    """The live tree must be self-consistent. On a tagged release HEAD the
-    check passes as-is; on an untagged tree it must report exactly the
-    missing-tag error (never silently pass)."""
+    """The live tree must be self-consistent. On a development version
+    (PEP 440 .devN suffix) the check passes as-is with no tag required;
+    on a final version HEAD must carry the matching tag (never silently
+    pass)."""
     import subprocess
 
     result = subprocess.run(
@@ -19,10 +27,13 @@ def test_current_development_state_is_truthful():
     )
     tags = {t for t in result.stdout.splitlines() if t}
     errors = check_release_state(REPO_ROOT)
-    if "v3.0.0" in tags:
+    version = _package_version()
+    if version.endswith(".dev0") or ".dev" in version:
+        assert errors == []
+    elif f"v{version}" in tags:
         assert errors == []
     else:
-        assert errors == ["final version 3.0.0 must be tagged v3.0.0 at HEAD"]
+        assert errors == [f"final version {version} must be tagged v{version} at HEAD"]
 
 
 def test_final_release_requires_matching_head_tag(tmp_path):
