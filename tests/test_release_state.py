@@ -23,7 +23,9 @@ def test_current_development_state_is_truthful():
 
     result = subprocess.run(
         ["git", "tag", "--points-at", "HEAD"],
-        cwd=REPO_ROOT, capture_output=True, text=True,
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
     )
     tags = {t for t in result.stdout.splitlines() if t}
     errors = check_release_state(REPO_ROOT)

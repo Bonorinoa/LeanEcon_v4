@@ -136,7 +136,9 @@ def test_classify_probe_failure_shapes_seen_in_reprobe():
         == "binder_annotation"
     )
     assert (
-        classify_probe_failure("warning: Ambiguous use of subset notation: the type is a metavariable.")
+        classify_probe_failure(
+            "warning: Ambiguous use of subset notation: the type is a metavariable."
+        )
         == "ambiguity"
     )
     # sorry-carrying compilation must classify as sorry, never clean

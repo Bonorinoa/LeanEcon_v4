@@ -217,9 +217,7 @@ def score_fixture_dir(root: Path | str) -> dict[str, Any]:
     first_try = sum(1 for row in cases if row["first_try_valid"])
     draft = sum(1 for row in cases if row["draft_complete"])
     sole = sum(1 for row in cases if row["sole_author_verified"])
-    audit_clean = sum(
-        1 for row in cases if row["attempts_to_valid"] is not None
-    )
+    audit_clean = sum(1 for row in cases if row["attempts_to_valid"] is not None)
     elaborates = sum(1 for row in cases if row["probe_compiles"])
     histogram: dict[str, int] = {}
     for row in cases:

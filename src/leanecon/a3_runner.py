@@ -43,7 +43,6 @@ from leanecon.claim_store import (
     new_run_id,
 )
 from leanecon.data_policy import contains_gold
-from leanecon.probe_repair import diagnose as probe_diagnose
 from leanecon.events import (
     EVENT_CLAIM_STATE_CHANGED,
     EVENT_DIAGNOSTIC_RESULT,
@@ -71,6 +70,7 @@ from leanecon.interpretation import (
 )
 from leanecon.lean_probe import probe_workspace
 from leanecon.lifecycle import TERMINAL_STATES
+from leanecon.probe_repair import diagnose as probe_diagnose
 from leanecon.providers import Capability, ProviderAdapter, ProviderFailure
 from leanecon.repopath import find_repo_root
 from leanecon.reviewer_policy import resolve_reviewer

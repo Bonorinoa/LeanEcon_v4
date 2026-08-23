@@ -57,7 +57,12 @@ def test_budget_constant_untouched():
 
 
 def _fb(**kw):
-    base = {"draft": "theorem t : True", "static_problems": [], "probe_compiles": None, "probe_stderr": ""}
+    base = {
+        "draft": "theorem t : True",
+        "static_problems": [],
+        "probe_compiles": None,
+        "probe_stderr": "",
+    }
     base.update(kw)
     return base
 
@@ -73,7 +78,10 @@ def test_diagnose_none_for_clean_or_no_probe():
 
 
 def test_diagnose_binder_annotation():
-    fb = _fb(probe_compiles=False, probe_stderr="error: invalid binder annotation, type is not a class instance")
+    fb = _fb(
+        probe_compiles=False,
+        probe_stderr="error: invalid binder annotation, type is not a class instance",
+    )
     text = diagnose(fb)
     assert text is not None
     assert "binder" in text.lower()
@@ -106,7 +114,10 @@ def test_block_unchanged_without_failed_probe():
 def test_block_appends_diagnosis_after_failed_probe():
     hist = [
         _fb(static_problems=["d1 bare core"]),
-        _fb(probe_compiles=False, probe_stderr="error: invalid binder annotation, type is not a class instance"),
+        _fb(
+            probe_compiles=False,
+            probe_stderr="error: invalid binder annotation, type is not a class instance",
+        ),
     ]
     block = revision_feedback_block(hist)
     assert "Attempt 1:" in block and "Attempt 2:" in block
@@ -123,8 +134,11 @@ def test_runner_block_diagnoses_failed_probe():
     from leanecon.revise_loop import Feedback
 
     hist = [
-        Feedback(draft="theorem t : True", probe_compiles=False,
-                 probe_stderr="error: invalid binder annotation, type is not a class instance"),
+        Feedback(
+            draft="theorem t : True",
+            probe_compiles=False,
+            probe_stderr="error: invalid binder annotation, type is not a class instance",
+        ),
     ]
     block = runner_block(hist)
     assert "Diagnosis" in block
@@ -138,13 +152,25 @@ def test_runner_block_matches_library_when_no_diagnosis():
     from leanecon.revise_loop import Feedback
 
     hist = [Feedback(draft="theorem t : True", static_problems=["proof body detected"])]
-    as_dicts = [{"draft": f.draft, "static_problems": list(f.static_problems),
-                 "probe_compiles": f.probe_compiles, "probe_stderr": f.probe_stderr}
-                for f in hist]
+    as_dicts = [
+        {
+            "draft": f.draft,
+            "static_problems": list(f.static_problems),
+            "probe_compiles": f.probe_compiles,
+            "probe_stderr": f.probe_stderr,
+        }
+        for f in hist
+    ]
     assert runner_block(hist) == lib_block(as_dicts)
 
     clean = [Feedback(draft="theorem u : True", probe_compiles=True, probe_stderr="")]
-    as_dicts = [{"draft": f.draft, "static_problems": list(f.static_problems),
-                 "probe_compiles": f.probe_compiles, "probe_stderr": f.probe_stderr}
-                for f in clean]
+    as_dicts = [
+        {
+            "draft": f.draft,
+            "static_problems": list(f.static_problems),
+            "probe_compiles": f.probe_compiles,
+            "probe_stderr": f.probe_stderr,
+        }
+        for f in clean
+    ]
     assert runner_block(clean) == lib_block(as_dicts)

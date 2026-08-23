@@ -28,8 +28,7 @@ MAX_REVISION_ATTEMPTS_UNCHANGED = 3
 #: Header used by a3_runner._revision_feedback_block — re-exported here
 #: so tests can pin the shared string in one place.
 REVISION_FEEDBACK_HEADER = (
-    "Prior kernel/static feedback from earlier attempts in this "
-    "formalize call."
+    "Prior kernel/static feedback from earlier attempts in this formalize call."
 )
 
 #: Static class → Lean-fact directives. Total over classify_probe_failure
