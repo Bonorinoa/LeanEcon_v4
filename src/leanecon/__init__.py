@@ -8,4 +8,4 @@ Attribution: prepared by Hermes Agent (Nous Research) under direction of
 the CTO (@Bonorinoa), who remains the accountable semantic authority.
 """
 
-__version__ = "1.0.0"
+__version__ = "4.0.0.dev0"

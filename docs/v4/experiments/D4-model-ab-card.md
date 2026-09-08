@@ -1,6 +1,6 @@
 # Experiment card — D4 model-pin A/B (formalizer fallback decision)
 
-**Date:** 2026-09-07 · **Branch:** `v4/g0-kickoff` (proposal only — no push)
+**Date:** 2026-09-07 · **Branch:** `v4/opinion-slice` (proposal + implementation)
 **Parent:** `docs/v4/INIT_V4_AGENTIC.md` · **Gate:** DL 51/D4 (swaps need
 dev-fixture A/B then sealed evidence)
 **Status:** **HELD by CTO 2026-09-07** — keep `labs-leanstral-1-5` pinned

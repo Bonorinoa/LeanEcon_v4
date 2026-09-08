@@ -13,6 +13,8 @@ Subcommands (the CTO-facing surface):
   axiom-approve reviewer approves the axiom list (per-run reviewer record)
   verify        proof input -> PROVING -> VERIFIED | FAILED | BLOCKED + bundle
   bundle        re-validate the current bundle and print the validator checklist
+  opinion       consultative review of a formalization (never a decision;
+                no lifecycle transition) — v4 slice 1, DL 51/D3
   replay        trace replay by run id or claim id
   status        claim state and artifact references
 
@@ -31,6 +33,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +50,9 @@ from leanecon.data_policy import contains_gold
 from leanecon.events import (
     EVENT_CLAIM_STATE_CHANGED,
     EVENT_DIAGNOSTIC_RESULT,
+    EVENT_OPINION_EMITTED,
+    EVENT_OPINION_FAILED,
+    EVENT_OPINION_REQUESTED,
     EVENT_PROVIDER_REQUEST_BLOCKED,
     EVENT_VERIFICATION_COMPLETED,
     Event,
@@ -70,6 +77,16 @@ from leanecon.interpretation import (
 )
 from leanecon.lean_probe import probe_workspace
 from leanecon.lifecycle import TERMINAL_STATES
+from leanecon.opinion import (
+    ALLOWED_SURFACES,
+    MODE_CONSULTATIVE,
+    MODE_PEDAGOGICAL,
+    OPINION_SCHEMA_VERSION,
+    SURFACE_FORMAL,
+    build_opinion_prompt,
+    machine_block,
+    parse_opinion_response,
+)
 from leanecon.probe_repair import diagnose as probe_diagnose
 from leanecon.providers import Capability, ProviderAdapter, ProviderFailure
 from leanecon.repopath import find_repo_root
@@ -83,7 +100,7 @@ from leanecon.verifier import (
     verify_candidate,
 )
 
-BUILDER_IDENTITY = "leanecon-a3-3.5.0"
+BUILDER_IDENTITY = "leanecon-a3-4.0.0.dev0"
 
 REPO_ROOT = find_repo_root()
 WORKSPACE = REPO_ROOT / "lean_workspace"
@@ -1396,6 +1413,170 @@ def cmd_status(args, store: ArtifactStore) -> int:
 
 
 # ---------------------------------------------------------------------------
+# opinion (v4 slice 1 — consultative side-door; DL 51/D3)
+# ---------------------------------------------------------------------------
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def cmd_opinion(args, store: ArtifactStore) -> int:
+    """Consultative opinion on a claim's formalization.
+
+    Consultative only (DL 51/D3): never ACCEPTED/REJECTED, never a
+    lifecycle transition, never gated into the bundle checks. The claim
+    state is read, never written; the artifact is recorded under
+    ``opinions/<claim>/rev-N.json`` with provenance
+    ``consultative_opinion``.
+    """
+    claim = store.load_claim(args.claim_id)
+    if claim.formal_rev is None:
+        raise SystemExit(
+            f"cannot opine: claim {claim.claim_id} has no formalization; run `formalize` first"
+        )
+    if claim.accepted_ei_rev is None:
+        raise SystemExit(f"cannot opine: claim {claim.claim_id} has no accepted EI")
+    formal = store.read_formal(claim.claim_id, claim.formal_rev)
+    ei = store.read_ei(claim.claim_id, claim.accepted_ei_rev)
+    surface = getattr(args, "surface", SURFACE_FORMAL) or SURFACE_FORMAL
+    mode = MODE_PEDAGOGICAL if getattr(args, "pedagogical", False) else MODE_CONSULTATIVE
+    actor = getattr(args, "reviewer", "") or "user"
+    notes = getattr(args, "notes", "") or ""
+
+    run_id, log = _new_run(args.events_dir)
+    machine = machine_block(formal, ei)
+    prompt = build_opinion_prompt(claim.source_text, ei, formal, machine, mode)
+    requested = Event(
+        event_type=EVENT_OPINION_REQUESTED,
+        run_id=run_id,
+        claim_id=claim.claim_id,
+        source_component="a3-opinion",
+        actor=actor,
+        payload_class=claim.data_class,
+        trace_ref=f"claim:{claim.claim_id}",
+        detail={
+            "surface": surface,
+            "mode": mode,
+            "formal_revision": formal.get("revision"),
+            "formal_digest": (formal.get("digest") or "")[:16],
+        },
+    )
+    _emit(log, requested)
+
+    adapter = _make_adapter(run_id, log)
+    try:
+        response = adapter.request(
+            capability=Capability.OPINION,
+            model=MVP_MODEL_MAP[Capability.OPINION].model,
+            typed_payload={"prompt": prompt},
+            declared_class=claim.data_class,
+            run_id=run_id,
+            claim_id=claim.claim_id,
+        )
+    except ProviderFailure as failure:
+        _emit(
+            log,
+            Event(
+                event_type=EVENT_OPINION_FAILED,
+                run_id=run_id,
+                claim_id=claim.claim_id,
+                source_component="a3-opinion",
+                actor="system",
+                payload_class=claim.data_class,
+                trace_ref=f"claim:{claim.claim_id}",
+                reason_codes=(failure.reason_code,),
+                detail={"error": failure.message},
+            ),
+        )
+        print(f"opinion failed: {failure.message} (claim state unchanged: {claim.state})")
+        return 1
+
+    content = (response.output or {}).get("content", "")
+    try:
+        parsed = parse_opinion_response(content, mode)
+    except ValueError as exc:
+        _emit(
+            log,
+            Event(
+                event_type=EVENT_OPINION_FAILED,
+                run_id=run_id,
+                claim_id=claim.claim_id,
+                source_component="a3-opinion",
+                actor="system",
+                payload_class=claim.data_class,
+                trace_ref=f"claim:{claim.claim_id}",
+                reason_codes=("PROVIDER_INVALID_OUTPUT",),
+                detail={"error": str(exc)},
+            ),
+        )
+        print(f"opinion failed: {exc} (claim state unchanged: {claim.state})")
+        return 1
+
+    model = response.metadata.model if response.metadata is not None else None
+    request_id = response.metadata.request_id if response.metadata is not None else None
+    artifact = store.write_opinion(
+        claim.claim_id,
+        {
+            "schema_version": OPINION_SCHEMA_VERSION,
+            "opinion_id": f"opn-{uuid.uuid4().hex[:12]}",
+            "claim_id": claim.claim_id,
+            "surface": surface,
+            "mode": mode,
+            "requested_at": requested.emitted_at,
+            "actor": actor,
+            "notes": notes,
+            "artifact_anchor": {
+                "claim_id": claim.claim_id,
+                "formal_revision": formal.get("revision"),
+                "formal_digest": formal.get("digest"),
+                "ei_digest": ei.get("digest"),
+            },
+            "machine_block": machine,
+            "assessment": parsed["assessment"],
+            "pedagogical": parsed["pedagogical"],
+            "provenance": {
+                "kind": "consultative_opinion",
+                "capability": "opinion",
+                "model": model,
+                "request_id": request_id,
+                "mode": mode,
+                "surface": surface,
+            },
+        },
+    )
+    _emit(
+        log,
+        Event(
+            event_type=EVENT_OPINION_EMITTED,
+            run_id=run_id,
+            claim_id=claim.claim_id,
+            source_component="a3-opinion",
+            actor="system",
+            payload_class=claim.data_class,
+            trace_ref=f"claim:{claim.claim_id}",
+            detail={
+                "opinion_id": artifact["opinion_id"],
+                "opinion_rev": artifact["revision"],
+                "digest": artifact["digest"][:16],
+                "formal_revision": formal.get("revision"),
+                "mode": mode,
+            },
+        ),
+    )
+    print(
+        f"opinion {artifact['opinion_id']} emitted for claim {claim.claim_id} "
+        f"(mode={mode}, surface={surface}; consultative only)"
+    )
+    print(
+        f"  rev {artifact['revision']} digest {artifact['digest'][:16]}… bound to "
+        f"formal rev {formal.get('revision')} digest {(formal.get('digest') or '')[:16]}…"
+    )
+    print(f"  claim state unchanged: {claim.state}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
 
@@ -1520,6 +1701,27 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("status", help="claim state and artifact references")
     p.add_argument("--claim-id", required=True)
     p.set_defaults(func=cmd_status)
+
+    p = sub.add_parser(
+        "opinion",
+        help="consultative review of a formalization (never ACCEPTED/REJECTED; "
+        "no lifecycle transition) — v4 slice 1",
+    )
+    p.add_argument("--claim-id", required=True)
+    p.add_argument(
+        "--surface",
+        default=SURFACE_FORMAL,
+        choices=list(ALLOWED_SURFACES),
+        help="slice-1 target surface: the formal draft + mapping report",
+    )
+    p.add_argument(
+        "--pedagogical",
+        action="store_true",
+        help="pedagogical mode (D5): include learner-facing explanation + what to try next",
+    )
+    p.add_argument("--reviewer", default="", help="requester identity recorded as actor")
+    p.add_argument("--notes", default="")
+    p.set_defaults(func=cmd_opinion)
     return parser
 
 

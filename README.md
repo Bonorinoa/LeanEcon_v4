@@ -131,6 +131,8 @@ gap-ack       reviewer acknowledges mapping gaps   (enables PROVING)
 axiom-approve reviewer approves the axiom list     (per-run reviewer record)
 verify        proof input -> PROVING -> VERIFIED | FAILED | BLOCKED (+ bundle)
 bundle        re-validate the current bundle (12-item checklist)
+opinion       consultative review of a formalization (never ACCEPTED/REJECTED;
+              no lifecycle transition; --pedagogical adds learner framing) — v4
 replay        trace replay (deterministic validation)
 status        claim state and artifact references
 ```

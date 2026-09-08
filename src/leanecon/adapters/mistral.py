@@ -55,6 +55,10 @@ MVP_MODEL_MAP: dict[Capability, CapabilityMapping] = {
     Capability.DIAGNOSTIC_PROBE: CapabilityMapping(
         capability=Capability.DIAGNOSTIC_PROBE, model="mistral-medium-3-5", provider="mistral"
     ),
+    # v4 consultative opinion (D1): reuses the interpret/triage pin.
+    Capability.OPINION: CapabilityMapping(
+        capability=Capability.OPINION, model="mistral-medium-3-5", provider="mistral"
+    ),
 }
 
 

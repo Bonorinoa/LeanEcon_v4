@@ -24,6 +24,11 @@ EVENT_DIAGNOSTIC_RESULT = "DIAGNOSTIC_RESULT"
 EVENT_CLAIM_STATE_CHANGED = "CLAIM_STATE_CHANGED"
 EVENT_PROVIDER_REQUEST_BLOCKED = "PROVIDER_REQUEST_BLOCKED"
 EVENT_VERIFICATION_COMPLETED = "VERIFICATION_COMPLETED"
+#: v4 consultative opinion side-door (DL 51/D3). Opinion events are
+#: audit events only — never claim lifecycle transitions.
+EVENT_OPINION_REQUESTED = "OPINION_REQUESTED"
+EVENT_OPINION_EMITTED = "OPINION_EMITTED"
+EVENT_OPINION_FAILED = "OPINION_FAILED"
 
 #: Reason-code registry locked at Gate 3 (docs/gate3/02, minimal A1/A3 set),
 #: plus PROVIDER_INVALID_OUTPUT (plan minimum list; A1 criterion 10) and

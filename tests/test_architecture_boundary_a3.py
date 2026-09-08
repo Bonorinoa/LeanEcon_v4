@@ -24,6 +24,7 @@ A3_MODULES = (
     "bundle.py",
     "trace_replay.py",
     "reviewer_policy.py",
+    "opinion.py",
 )
 
 

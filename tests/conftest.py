@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -95,6 +96,26 @@ def formalize_output(statement: str, target: str, report: list[dict] | None = No
     }
 
 
+def opinion_output(mode: str = "consultative") -> dict:
+    """Canned model opinion valid for the given mode (conftest default)."""
+    pedagogical = None
+    if mode == "pedagogical":
+        pedagogical = {
+            "learner_explanation": "The draft states the claim faithfully but the "
+            "kernel rejected it at elaboration; the machine block shows why.",
+            "what_to_try_next": ["Fix the binder annotation class", "Re-check the mapping ids"],
+        }
+    return {
+        "assessment": {
+            "summary": "The formal statement tracks the claim's conclusion.",
+            "strengths": ["Conclusion matches the claim", "Mapping rows are complete"],
+            "concerns": [],
+            "suggestions": ["Nothing blocking; consult the machine block"],
+        },
+        "pedagogical": pedagogical,
+    }
+
+
 class FakeAdapter(MistralAdapter):
     """Deterministic in-memory adapter. Interprets via ``ei_factory`` and
     formalizes via ``formalize_factory``; no network, no credentials."""
@@ -105,6 +126,8 @@ class FakeAdapter(MistralAdapter):
         formalize_factory=None,
         interpret_failure=None,
         formalize_failure=None,
+        opinion_factory=None,
+        opinion_failure=None,
     ):
         super().__init__(transport=lambda *a, **k: {"choices": [{"message": {"content": ""}}]})
         self._api_key_env = "MISTRAL_TEST_KEY"
@@ -112,6 +135,8 @@ class FakeAdapter(MistralAdapter):
         self._formalize_factory = formalize_factory
         self._interpret_failure = interpret_failure
         self._formalize_failure = formalize_failure
+        self._opinion_factory = opinion_factory
+        self._opinion_failure = opinion_failure
         self.requests_seen: list[dict] = []
 
     def _invoke(self, capability, model, payload, decision, run_id) -> ProviderResponse:
@@ -129,7 +154,6 @@ class FakeAdapter(MistralAdapter):
             if failure is not None:
                 raise ProviderFailure(failure, "mock interpret failure", provider="mistral")
             ei = self._ei_factory()
-            import json
 
             return ProviderResponse(
                 capability=capability,
@@ -144,13 +168,26 @@ class FakeAdapter(MistralAdapter):
                 raise ProviderFailure(failure, "mock formalize failure", provider="mistral")
             if self._formalize_factory is None:
                 raise AssertionError("FakeAdapter.formalize_factory not configured")
-            import json
 
             output = self._formalize_factory()
             return ProviderResponse(
                 capability=capability,
                 status=CapabilityStatus.HEALTHY,
                 output={"content": json.dumps(output)},
+                metadata=metadata,
+            )
+
+        if capability is Capability.OPINION:
+            failure = self._opinion_failure
+            if failure is not None:
+                raise ProviderFailure(failure, "mock opinion failure", provider="mistral")
+            factory = self._opinion_factory or opinion_output
+            prompt = payload.get("prompt") or ""
+            mode = "pedagogical" if "Mode: pedagogical." in prompt else "consultative"
+            return ProviderResponse(
+                capability=capability,
+                status=CapabilityStatus.HEALTHY,
+                output={"content": json.dumps(factory(mode))},
                 metadata=metadata,
             )
 

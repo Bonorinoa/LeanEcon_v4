@@ -26,6 +26,9 @@ class Capability(str, Enum):
     SEMANTIC_TRIAGE = "semantic_triage"
     #: A1 diagnostic capability: structured-output probe against a model.
     DIAGNOSTIC_PROBE = "diagnostic_probe"
+    #: v4 consultative opinion (DL 51/D3): review-adjacent judgment, never
+    #: an authorized decision. Reuses the interpret/triage model pin (D1).
+    OPINION = "opinion"
 
 
 class ProviderFailureKind(str, Enum):

@@ -1,10 +1,11 @@
 # G0 — Opinion side-door slice proposal (v4, slice 1)
 
-**Date:** 2026-09-07 · **Branch:** `v4/g0-kickoff` (proposal only — no push)
-**Parent:** `docs/v4/INIT_V4_AGENTIC.md` · **Status:** PROPOSED — D5
-RESOLVED (pedagogical mode IN); D1–D4 amendments pending CTO naming
-(2026-09-07 "approve with amendments" — amendments not yet specified;
-no implementation until named)
+**Date:** 2026-09-07 · **Branch:** `v4/opinion-slice` (proposal + implementation)
+**Parent:** `docs/v4/INIT_V4_AGENTIC.md` · **Status:** **APPROVED
+(2026-09-07, "proceed as suggested") + IMPLEMENTED on the branch** —
+D1–D4 approved as proposed, D5 pedagogical mode IN (DECISION_LOG 55);
+implementation lands `leanecon.opinion` + `cmd_opinion`, suite 262 green,
+deterministic tests only (provider_calls=0). Merge CTO-gated.
 **Locked refs:** DECISION_LOG 51/D3 (consultative `opinion` side-door is
 first-class v4 work, consultative only, NEVER authorized to emit
 ACCEPTED); DL 31 (reviewer policy); DL 46 (narrowed promise: product =
