@@ -1,7 +1,10 @@
 # G0 — Opinion side-door slice proposal (v4, slice 1)
 
 **Date:** 2026-09-07 · **Branch:** `v4/g0-kickoff` (proposal only — no push)
-**Parent:** `docs/v4/INIT_V4_AGENTIC.md` · **Status:** PROPOSED — awaits CTO verdict
+**Parent:** `docs/v4/INIT_V4_AGENTIC.md` · **Status:** PROPOSED — D5
+RESOLVED (pedagogical mode IN); D1–D4 amendments pending CTO naming
+(2026-09-07 "approve with amendments" — amendments not yet specified;
+no implementation until named)
 **Locked refs:** DECISION_LOG 51/D3 (consultative `opinion` side-door is
 first-class v4 work, consultative only, NEVER authorized to emit
 ACCEPTED); DL 31 (reviewer policy); DL 46 (narrowed promise: product =
@@ -76,7 +79,7 @@ unless D1 says otherwise).
 | D2 | Target surfaces in slice 1 | (b) formal draft + mapping report first (highest-value: that is where fidelity failures live); (a)+(c) later. |
 | D3 | Prose grounding enforcement | Hard: opinion prose must cite artifact content; machine block cannot be contradicted (deterministic guard where checkable). |
 | D4 | Where opinions are recorded | New event kinds `opinion_requested` / `opinion_emitted` + artifact dir; excluded from bundle 12 checks (they are verification evidence, not opinions). |
-| D5 | Educational framing | Should the opinion schema carry a `pedagogical` flag/mode (explain-the-failure-for-a-learner) in slice 1, or is that a slice-2 concern? |
+| D5 | Educational framing | **RESOLVED 2026-09-07: pedagogical mode is IN slice 1** — schema carries a first-class pedagogical field: learner-facing explanation of the failure (P1–P6 terms where possible) + what to try next. Not a flag bolted on later; designed in. |
 
 ## Non-goals (unchanged doctrine)
 
