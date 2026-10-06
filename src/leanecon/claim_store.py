@@ -214,6 +214,30 @@ class ArtifactStore:
                 records.append(record)
         return records
 
+    # -- consultative opinions (v4 slice 1; DL 51/D3) --------------------
+    def _opinion_dir(self, claim_id: str) -> Path:
+        return self.root / "opinions" / claim_id
+
+    def opinion_revs(self, claim_id: str) -> list[int]:
+        d = self._opinion_dir(claim_id)
+        if not d.exists():
+            return []
+        return sorted(int(p.stem.split("-")[1]) for p in d.glob("rev-*.json"))
+
+    def write_opinion(self, claim_id: str, payload: dict) -> dict:
+        rev = (self.opinion_revs(claim_id) or [0])[-1] + 1
+        body = dict(payload)
+        body["revision"] = rev
+        body["claim_id"] = claim_id
+        body["stored_at"] = _now()
+        return self.write_json(self._opinion_dir(claim_id) / f"rev-{rev}.json", body)
+
+    def read_opinion(self, claim_id: str, rev: int | None = None) -> dict:
+        revs = self.opinion_revs(claim_id)
+        if not revs:
+            raise FileNotFoundError(f"no opinion for {claim_id}")
+        return self.read_json(self._opinion_dir(claim_id) / f"rev-{(rev or revs[-1])}.json")
+
     # -- bundles ---------------------------------------------------------
     def write_bundle(self, bundle_id: str, manifest: dict, files: dict[str, str | dict]) -> Path:
         bundle_dir = self.root / "bundles" / bundle_id
