@@ -12,7 +12,15 @@ from pathlib import Path
 SRC = Path(__file__).resolve().parents[1] / "src" / "leanecon"
 
 HTTP_CLIENT_MODULES = {"httpx", "requests", "aiohttp", "urllib3", "mistralai"}
-VENDOR_MODEL_IDS = {"mistral-medium-3-5", "labs-leanstral-1-5"}
+# Retired Mistral ids stay forbidden in core; the live pin lives only
+# in the adapter.
+VENDOR_MODEL_IDS = {
+    "mistral-medium-3-5",
+    "labs-leanstral-1-5",
+    "openrouter/free",
+    "openrouter/auto",
+    "typesafe/jev-router",
+}
 
 
 def _python_files():
@@ -58,16 +66,22 @@ def test_core_never_references_vendor_model_ids():
     assert violations == [], violations
 
 
-def test_only_mistral_adapter_reads_the_mistral_credential():
+def test_only_adapter_reads_the_provider_credential():
     violations = []
+    adapter = SRC / "adapters" / "openrouter.py"
     for path in _python_files():
-        if path == SRC / "adapters" / "mistral.py":
-            continue
         text = path.read_text(encoding="utf-8")
         if "MISTRAL_API_KEY" in text:
+            violations.append(f"{path.relative_to(SRC)}: still names MISTRAL_API_KEY")
+        if "api.mistral.ai" in text:
+            violations.append(f"{path.relative_to(SRC)}: still calls api.mistral.ai")
+        if path == adapter:
+            continue
+        if "OPENROUTER_API_KEY" in text:
             violations.append(str(path.relative_to(SRC)))
     assert violations == [], violations
 
 
 def test_single_boundary_module_exists():
-    assert (SRC / "adapters" / "mistral.py").exists()
+    assert (SRC / "adapters" / "openrouter.py").exists()
+    assert not (SRC / "adapters" / "mistral.py").exists()

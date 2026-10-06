@@ -3,13 +3,11 @@
 **Date:** 2026-09-07 · **Branch:** `v4/opinion-slice` (proposal + implementation)
 **Parent:** `docs/v4/INIT_V4_AGENTIC.md` · **Gate:** DL 51/D4 (swaps need
 dev-fixture A/B then sealed evidence)
-**Status:** **HELD by CTO 2026-09-07** — keep `labs-leanstral-1-5` pinned
-until retirement forces the decision. Supersedes the same-day earlier
-direction to run the A/B now. Consequences recorded: the ~Sept 20
-re-pin deadline lapses; the swap becomes a forced move at expiry
-(~Sept 30) or on a 404 at run time; a mid-sprint retirement risks an
-evidence discontinuity on the formalizer pin. Re-open trigger: any 404/
-401/retirement notice on the pinned model, or CTO direction.
+**Status:** **SUPERSEDED 2026-10-06 by DECISION_LOG 57** — Mistral
+unsubscribed; live pin is OpenRouter `openrouter/free`. This card's
+Mistral PAYG candidate pool is not available. See
+`docs/v4/PROVIDER_CUTOVER.md`. The 2026-09-07 HELD text below is
+historical.
 
 ## Trigger (why now)
 

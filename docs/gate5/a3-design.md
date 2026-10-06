@@ -19,8 +19,9 @@ the CTO remains the sole semantic approver.
 
 ## 0. Scope
 
-**In scope (Gate 5 exit evidence):** interpretation service (`mistral-medium-3-5`),
-formalization service (`labs-leanstral-1-5`), verifier + pinned-workspace
+**In scope (Gate 5 exit evidence):** interpretation service (`openrouter/free`,
+DL 57),
+formalization service (`openrouter/free`), verifier + pinned-workspace
 interface, approval-event capture, state-transition validation, artifact and
 bundle export, proven/failed input statement with sanity-check metadata, and a
 trace-replay test. Proofs are **manually supplied** (reviewer or reviewed v4
@@ -122,9 +123,9 @@ opens a new revision at `DRAFT`.
       │                                        ┌────────┤├─────────┐
       │                                        │        ││         │
       │                            interpretation ◀┘└▶ provider    │
-      │                            formalization ───▶ boundary ───▶ Mistral
-      │                                        │        (adapter,   │  interpret → mistral-medium-3-5
-      │                                        │         redact)   │  formalize → labs-leanstral-1-5
+      │                            formalization ───▶ boundary ───▶ OpenRouter
+      │                                        │        (adapter,   │  all capabilities → openrouter/free
+      │                                        │         redact)   │  (DL 57; Mistral unsubscribed)
       │                                        │                   │
       │                                        └──▶ verifier ───▶ pinned workspace (lake env lean,
       │                                                     #print axioms)
@@ -135,8 +136,8 @@ opens a new revision at `DRAFT`.
   bundle + trace (human-readable)
 ```
 
-Only `leanecon.adapters.mistral` may touch the Mistral API or read
-`MISTRAL_API_KEY`. The runner and all A3 services talk only typed payloads and
+Only `leanecon.adapters.openrouter` may touch the OpenRouter API or read
+`OPENROUTER_API_KEY`. The runner and all A3 services talk only typed payloads and
 typed failures — the Gate 4 architecture-boundary tests are extended to cover
 the new modules (§9).
 
@@ -179,8 +180,8 @@ Proof input is manual, so proofs make **no provider call at all** in Gate 5.
 
 | Egress point | Payload | Model (config) | Class |
 |---|---|---|---|
-| `interpret` | claim text + approved context | `mistral-medium-3-5` | `PROJECT` default; `PUBLIC` only if CTO classified the claim so |
-| `formalize` | **accepted** EI + formalization context (glossary refs, workspace identity names) | `labs-leanstral-1-5` | same as claim |
+| `interpret` | claim text + approved context | `openrouter/free` | `PROJECT` default; `PUBLIC` only if CTO classified the claim so |
+| `formalize` | **accepted** EI + formalization context (glossary refs, workspace identity names) | `openrouter/free` | same as claim |
 | proof | none (manual) | — | — |
 
 The formalizer receives only accepted EI and approved context — never hidden
@@ -589,8 +590,10 @@ Existing A1 suite (44 tests) stays green and unchanged; A3 adds its own.
 | End-to-end walkthrough (live, `--live`) | one complete canonical claim: English → review → formalize → manual proof → `VERIFIED`, with bundle + replay | `a1_runner.py` structure | `a3_runner.py` `--live` mode |
 
 **Reused unchanged:** `events.py`, `data_policy.py`, `providers.py`,
-`adapters/mistral.py` (+ `MVP_MODEL_MAP`), `gold_isolation.py`, and
-`lean_probe.py` (identity + sorry helpers). **Extended:** none of the above is
+`gold_isolation.py`, `lean_probe.py` (identity + sorry helpers), and the
+provider-boundary pattern. Live adapter is `adapters/openrouter.py` +
+`MVP_MODEL_MAP` (DL 57; Gate 5 historically shipped `adapters/mistral.py`).
+**Extended:** none of the above is
 modified in place; new A3 modules import them. The only new dependency
 proposed is `jsonschema` for EI validation (Open Question 6).
 

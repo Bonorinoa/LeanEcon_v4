@@ -14,9 +14,10 @@ latest supported release is v3.5.0 Measured Elaboration).
 
 The v3.5.0 earn (sealed holdout `formalizer-v35h1` draft_complete 2/3 ≥
 0.60) stands on the tag. v4 opens the agentic line: the consultative
-opinion surface (never ACCEPTED/REJECTED, never a lifecycle transition),
-with the D4 model A/B held by the CTO (keep `labs-leanstral-1-5` until
-retirement forces the decision — reported Labs retirement 2026-09-30).
+opinion surface (never ACCEPTED/REJECTED, never a lifecycle transition).
+Live provider pin is OpenRouter `openrouter/free` (DECISION_LOG 57);
+Mistral is unsubscribed. The D4 leanstral A/B is **superseded** — see
+`docs/v4/PROVIDER_CUTOVER.md`.
 
 ## Release rule
 

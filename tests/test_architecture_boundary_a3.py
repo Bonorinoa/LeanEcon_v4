@@ -3,7 +3,7 @@
 Static checks prove the controls rather than relying on documentation:
 - only leanecon.adapters may import HTTP/provider client libraries;
 - no A3 core module references vendor model identifiers;
-- no module reads the Mistral credential except the adapter that owns it.
+- no module reads the provider credential except the adapter that owns it.
 """
 
 import ast
@@ -12,7 +12,13 @@ from pathlib import Path
 SRC = Path(__file__).resolve().parents[1] / "src" / "leanecon"
 
 HTTP_CLIENT_MODULES = {"httpx", "requests", "aiohttp", "urllib3", "mistralai"}
-VENDOR_MODEL_IDS = {"mistral-medium-3-5", "labs-leanstral-1-5"}
+VENDOR_MODEL_IDS = {
+    "mistral-medium-3-5",
+    "labs-leanstral-1-5",
+    "openrouter/free",
+    "openrouter/auto",
+    "typesafe/jev-router",
+}
 
 A3_MODULES = (
     "a3_runner.py",
@@ -62,7 +68,8 @@ def test_a3_core_modules_never_reference_vendor_model_ids():
 def test_a3_core_modules_never_mention_the_credential():
     violations = []
     for path in _a3_files():
-        if "MISTRAL_API_KEY" in path.read_text(encoding="utf-8"):
+        text = path.read_text(encoding="utf-8")
+        if "MISTRAL_API_KEY" in text or "OPENROUTER_API_KEY" in text:
             violations.append(path.name)
     assert violations == [], violations
 
@@ -72,6 +79,7 @@ def test_a3_runner_keeps_provider_touch_only_in_adapters():
     # the HTTP URL or build raw HTTP requests itself.
     text = (SRC / "a3_runner.py").read_text(encoding="utf-8")
     assert "api.mistral.ai" not in text
+    assert "openrouter.ai" not in text
     assert "httpx" not in text
 
 

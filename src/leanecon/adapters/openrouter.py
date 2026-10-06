@@ -1,13 +1,14 @@
-"""Mistral adapter — the single egress boundary to the Mistral API.
+"""Provider adapter — the single egress boundary to the model API.
 
-This is the only module that may construct a Mistral HTTP request or read
-the Mistral credential. MVP mapping (configuration, Gate 3 decision 6):
-- interpretation/explanation -> mistral-medium-3-5
-- Lean formalization/proof/repair -> labs-leanstral-1-5
-- semantic triage -> Mistral, explicitly non-authoritative
+This is the only module that may construct the provider HTTP request or
+read the provider credential. Every capability is pinned to OpenRouter's
+free router (`openrouter/free`), which only selects zero-price models.
+A failed call is a typed failure, never an implicit switch to a paid
+model. A 402 is a paid-path bug, not a cue to fund an account.
 
-No silent fallback: a failed model is a typed failure, never an implicit
-switch to another model.
+Jev Router (`typesafe/jev-router`) and `openrouter/auto` bill at the
+routed model's price and are not the live pin. HuggingFace inference
+is a complementary future path, not a second live adapter.
 """
 
 from __future__ import annotations
@@ -34,71 +35,82 @@ from leanecon.providers import (
     ProviderResponse,
 )
 
-MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
-CREDENTIAL_ENV_NAME = "MISTRAL_API_KEY"
+API_URL = "https://openrouter.ai/api/v1/chat/completions"
+CREDENTIAL_ENV_NAME = "OPENROUTER_API_KEY"
+# OpenRouter free router: routes only among models priced at $0.
+FREE_MODEL = "openrouter/free"
+PROVIDER = "openrouter"
+APP_REFERER = "https://github.com/Bonorinoa/LeanEcon_v4"
+APP_TITLE = "LeanEcon"
 
-#: MVP capability -> model mapping. Lives here as adapter configuration;
+#: Capability -> model mapping. Lives here as adapter configuration;
 #: core code never references model identifiers directly.
 MVP_MODEL_MAP: dict[Capability, CapabilityMapping] = {
-    Capability.INTERPRET: CapabilityMapping(
-        capability=Capability.INTERPRET, model="mistral-medium-3-5", provider="mistral"
-    ),
-    Capability.FORMALIZE: CapabilityMapping(
-        capability=Capability.FORMALIZE, model="labs-leanstral-1-5", provider="mistral"
-    ),
-    Capability.PROVE_OR_REPAIR: CapabilityMapping(
-        capability=Capability.PROVE_OR_REPAIR, model="labs-leanstral-1-5", provider="mistral"
-    ),
-    Capability.SEMANTIC_TRIAGE: CapabilityMapping(
-        capability=Capability.SEMANTIC_TRIAGE, model="mistral-medium-3-5", provider="mistral"
-    ),
-    Capability.DIAGNOSTIC_PROBE: CapabilityMapping(
-        capability=Capability.DIAGNOSTIC_PROBE, model="mistral-medium-3-5", provider="mistral"
-    ),
-    # v4 consultative opinion (D1): reuses the interpret/triage pin.
-    Capability.OPINION: CapabilityMapping(
-        capability=Capability.OPINION, model="mistral-medium-3-5", provider="mistral"
-    ),
+    capability: CapabilityMapping(capability=capability, model=FREE_MODEL, provider=PROVIDER)
+    for capability in (
+        Capability.INTERPRET,
+        Capability.FORMALIZE,
+        Capability.PROVE_OR_REPAIR,
+        Capability.SEMANTIC_TRIAGE,
+        Capability.DIAGNOSTIC_PROBE,
+        Capability.OPINION,
+    )
 }
+
+
+def failure_for_http_status(status_code: int) -> ProviderFailure | None:
+    """Map an HTTP status to a typed failure, or None on 2xx/3xx."""
+    if status_code < 400:
+        return None
+    if status_code == 401:
+        return ProviderFailure(
+            ProviderFailureKind.UNAVAILABLE,
+            "credential rejected by provider (401)",
+            provider=PROVIDER,
+        )
+    if status_code == 402:
+        return ProviderFailure(
+            ProviderFailureKind.INVALID_OUTPUT,
+            "paid-path (HTTP 402); live pin is the free router only",
+            provider=PROVIDER,
+        )
+    if status_code >= 500 or status_code == 429:
+        return ProviderFailure(
+            ProviderFailureKind.UNAVAILABLE,
+            f"provider outage/rate-limit (HTTP {status_code})",
+            provider=PROVIDER,
+        )
+    return ProviderFailure(
+        ProviderFailureKind.INVALID_OUTPUT,
+        f"provider request error (HTTP {status_code})",
+        provider=PROVIDER,
+    )
 
 
 def default_transport(request: dict, api_key: str, timeout_s: float) -> dict:
     """Real HTTP transport. Injectable for deterministic tests."""
     response = httpx.post(
-        MISTRAL_API_URL,
+        API_URL,
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "HTTP-Referer": APP_REFERER,
+            "X-Title": APP_TITLE,
         },
         json=request,
         timeout=timeout_s,
     )
-    if response.status_code == 401:
-        raise ProviderFailure(
-            ProviderFailureKind.UNAVAILABLE,
-            "credential rejected by provider (401)",
-            provider="mistral",
-        )
-    if response.status_code >= 500 or response.status_code == 429:
-        raise ProviderFailure(
-            ProviderFailureKind.UNAVAILABLE,
-            f"provider outage/rate-limit (HTTP {response.status_code})",
-            provider="mistral",
-        )
-    if response.status_code >= 400:
-        raise ProviderFailure(
-            ProviderFailureKind.INVALID_OUTPUT,
-            f"provider request error (HTTP {response.status_code})",
-            provider="mistral",
-        )
+    failure = failure_for_http_status(response.status_code)
+    if failure is not None:
+        raise failure
     return response.json()
 
 
-class MistralAdapter(ProviderAdapter):
-    """Single Mistral egress boundary. Owns credentials, retries,
+class OpenRouterAdapter(ProviderAdapter):
+    """Single provider egress boundary. Owns credentials, retries,
     normalization, and provider metadata."""
 
-    provider_name = "mistral"
+    provider_name = PROVIDER
     credential_env_name = CREDENTIAL_ENV_NAME
 
     def __init__(
@@ -192,9 +204,11 @@ class MistralAdapter(ProviderAdapter):
                 provider=self.provider_name,
             )
         usage = raw.get("usage")
+        routed = raw.get("model")
+        recorded_model = routed if isinstance(routed, str) and routed else model
         metadata = ProviderMetadata(
             provider=self.provider_name,
-            model=model,
+            model=recorded_model,
             request_id=raw.get("id"),
             latency_ms=latency_ms,
             token_metadata=(
