@@ -120,6 +120,39 @@ def test_gold_marker_key_in_claim_text_denied(tmp_path):
     assert rc == 1
 
 
+def test_interpret_records_provider_provenance(tmp_path, elan_on_path):
+    """DL 57 observability: the routed provider/model must be recoverable
+    from the EI artifact and the interpret event, not just the response."""
+    store = ArtifactStore(tmp_path)
+    claim = ClaimRecord(claim_id="c-prov", revision=1, source_text="claim", data_class="PROJECT")
+    store.save_claim(claim)
+    events_dir = tmp_path / "events"
+    run_id, log = a3_runner._new_run(events_dir)
+    from tests.conftest import FakeAdapter
+
+    adapter = FakeAdapter()
+    state, _ = a3_runner.interpret_claim(claim, store, log, run_id, adapter)
+    assert state == "REVIEW_REQUIRED"
+
+    ei = store.read_ei("c-prov")
+    provenance = ei["provenance"]
+    assert provenance["capability"] == "interpret"
+    assert provenance["provider"] == "openrouter"
+    assert provenance["model"] == "openrouter/free"
+    assert provenance["source_span"] == "s"  # model-supplied fields survive
+
+    records = [
+        json.loads(line)
+        for line in (events_dir / f"{run_id}.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    interpreted = [r for r in records if r.get("state_after") == "INTERPRETED"]
+    assert interpreted, records
+    detail = interpreted[0]["detail"]
+    assert detail["model"] == "openrouter/free"
+    assert detail["provider"] == "openrouter"
+
+
 def test_interpret_review_none_noted_requires_acknowledgement(tmp_path, elan_on_path):
     store = ArtifactStore(tmp_path)
     claim = ClaimRecord(claim_id="c1", revision=1, source_text="claim", data_class="PROJECT")

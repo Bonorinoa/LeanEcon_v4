@@ -10,7 +10,11 @@ before live calls)
 token). Predictions were written adversarially in-session instead.
 
 Live adapter records the *routed* model on formalize provenance.
-Interpret artifacts still omit provider metadata (observability gap).
+Interpret artifacts **did not** record provider metadata at E2E time
+(the observability gap this E2E exposed). Fixed in
+`fix/interpret-provenance`: `interpret_claim` now binds
+provider/model/request_id into the EI `provenance` (which flows into
+the accepted-EI digest) and onto the INTERPRETED event.
 
 ## Claims
 
@@ -50,7 +54,7 @@ is not the claim. Machine draft_complete ≠ semantic fidelity.
 | Check | Result |
 |---|---|
 | Formalize provenance.model | A: `dots-studio/dots-3-note-preview:free` |
-| Interpret EI / events carry routed model | **no** — events have digest only |
+| Interpret EI / events carry routed model | **no at E2E time** — fixed in `fix/interpret-provenance`; events had digest only |
 | 402 paid-path | none |
 | Empty content on 200 | C: `provider message missing content` (reasoning models) |
 
