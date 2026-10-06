@@ -18,8 +18,8 @@ and `docs/releases/v3.5.0.md`.
 
 ## Product thesis
 
-Economics claims are easy to state and hard to pin down. LeanEcon v4 pairs a
-Mistral-backed interpretation/formalization workflow with a pinned Lean 4 +
+Economics claims are easy to state and hard to pin down. LeanEcon v4 pairs an
+OpenRouter-backed interpretation/formalization workflow with a pinned Lean 4 +
 Mathlib workspace so that a claim is only ever labeled `VERIFIED` when both
 conditions hold:
 
@@ -48,8 +48,8 @@ The v1 workflow, plus measured AI-reviewer exercise and audit-gated assist
 libraries. Live `formalize` now runs the bounded revision loop
 (`leanecon.revise_loop`, budget 3). `skeleton` is a drafting CLI
 (`a3 skeleton`); unresolved gaps cannot reach `verify`.
-Interpretation (`mistral-medium-3-5`) and formalization (`labs-leanstral-1-5`)
-run live; `--from-file` is reviewer recovery when the formalizer is not
+Interpretation and formalization both run on OpenRouter's free router
+(`openrouter/free`; DECISION_LOG 57). `--from-file` is reviewer recovery when the formalizer is not
 statement-faithful.
 
 ### v3 promise (Verifiable State Machine — narrowed)

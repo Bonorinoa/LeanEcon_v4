@@ -19,9 +19,20 @@ Adapters own API calls, credentials, timeouts, retries/backoff, rate limits, res
 
 ## MVP mapping (configuration, not implementation)
 
-- interpretation and explanation → `mistral-medium-3-5`;
-- Lean formalization, proof, and repair → `labs-leanstral-1-5`;
-- semantic triage → Mistral capability, explicitly non-authoritative.
+Live pin (DECISION_LOG 57, 2026-10-06): every capability → OpenRouter
+free router `openrouter/free`, credential `OPENROUTER_API_KEY`. The
+adapter is `leanecon.adapters.openrouter.OpenRouterAdapter`.
+
+- interpretation, explanation, triage, diagnostic, opinion → `openrouter/free`;
+- Lean formalization, proof, and repair → `openrouter/free` (same slug;
+  FORMALIZE remains a distinct capability *slot*);
+- semantic triage remains explicitly non-authoritative.
+
+Retired Mistral ids (`mistral-medium-3-5`, `labs-leanstral-1-5`) and
+`api.mistral.ai` must not return. Paid OpenRouter routers
+(`openrouter/auto`, `typesafe/jev-router`) bill at the routed model's
+price and are **not** the live pin. A 402 is a paid-path bug, not a cue
+to fund an account.
 
 Model identifiers remain configuration outside core contracts. MVP proposes no silent fallback to another model; fallback behavior, model version pinning, and threshold values require Gate 4 operational approval.
 

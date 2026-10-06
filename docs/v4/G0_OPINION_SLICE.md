@@ -76,7 +76,7 @@ unless D1 says otherwise).
 
 | Ref | Decision | Proposal |
 |---|---|---|
-| D1 | Opinion model | Reuse interpret/triage pin (mistral-medium-3-5): opinion is review-adjacent judgment, not drafting. Alternative: formalizer pin. |
+| D1 | Opinion model | **RESOLVED 2026-09-07:** reuse interpret/triage pin. Slug updated 2026-10-06 (DL 57) to `openrouter/free` with interpret; never a distinct formalizer identity. |
 | D2 | Target surfaces in slice 1 | (b) formal draft + mapping report first (highest-value: that is where fidelity failures live); (a)+(c) later. |
 | D3 | Prose grounding enforcement | Hard: opinion prose must cite artifact content; machine block cannot be contradicted (deterministic guard where checkable). |
 | D4 | Where opinions are recorded | New event kinds `opinion_requested` / `opinion_emitted` + artifact dir; excluded from bundle 12 checks (they are verification evidence, not opinions). |

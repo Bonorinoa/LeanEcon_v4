@@ -15,7 +15,7 @@ import json
 import pytest
 
 from leanecon import a3_runner
-from leanecon.adapters.mistral import MVP_MODEL_MAP
+from leanecon.adapters.openrouter import MVP_MODEL_MAP
 from leanecon.claim_store import ArtifactStore, ClaimRecord
 from leanecon.events import EVENT_OPINION_EMITTED, EVENT_OPINION_FAILED, EVENT_OPINION_REQUESTED
 from leanecon.opinion import (
@@ -202,9 +202,11 @@ def test_opinion_records_model_capability_request(tmp_path, fake_adapter):
     seen = [r for r in adapter.requests_seen if r["capability"] is Capability.OPINION]
     assert len(seen) == 1
     assert seen[0]["model"] == MVP_MODEL_MAP[Capability.OPINION].model
-    # D1: opinion rides the interpret/triage pin, never the formalizer pin.
+    # D1: opinion rides the interpret/triage pin. After DL 57 the
+    # FORMALIZE *slot* remains distinct even though the live slug is
+    # currently the same free router.
     assert MVP_MODEL_MAP[Capability.OPINION].model == MVP_MODEL_MAP[Capability.INTERPRET].model
-    assert MVP_MODEL_MAP[Capability.OPINION].model != MVP_MODEL_MAP[Capability.FORMALIZE].model
+    assert Capability.FORMALIZE in MVP_MODEL_MAP
 
 
 # -- machine block: determinism + P1-P6 labeling ---------------------------

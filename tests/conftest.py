@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from leanecon.adapters.mistral import MistralAdapter
+from leanecon.adapters.openrouter import OpenRouterAdapter
 from leanecon.events import CapabilityStatus
 from leanecon.providers import (
     Capability,
@@ -116,7 +116,7 @@ def opinion_output(mode: str = "consultative") -> dict:
     }
 
 
-class FakeAdapter(MistralAdapter):
+class FakeAdapter(OpenRouterAdapter):
     """Deterministic in-memory adapter. Interprets via ``ei_factory`` and
     formalizes via ``formalize_factory``; no network, no credentials."""
 
@@ -130,7 +130,7 @@ class FakeAdapter(MistralAdapter):
         opinion_failure=None,
     ):
         super().__init__(transport=lambda *a, **k: {"choices": [{"message": {"content": ""}}]})
-        self._api_key_env = "MISTRAL_TEST_KEY"
+        self._api_key_env = "OPENROUTER_TEST_KEY"
         self._ei_factory = ei_factory
         self._formalize_factory = formalize_factory
         self._interpret_failure = interpret_failure
@@ -142,7 +142,7 @@ class FakeAdapter(MistralAdapter):
     def _invoke(self, capability, model, payload, decision, run_id) -> ProviderResponse:
         self.requests_seen.append({"capability": capability, "model": model, "payload": payload})
         metadata = ProviderMetadata(
-            provider="mistral",
+            provider="openrouter",
             model=model,
             request_id="req-mock",
             latency_ms=5,
@@ -152,7 +152,7 @@ class FakeAdapter(MistralAdapter):
         if capability is Capability.INTERPRET:
             failure = self._interpret_failure
             if failure is not None:
-                raise ProviderFailure(failure, "mock interpret failure", provider="mistral")
+                raise ProviderFailure(failure, "mock interpret failure", provider="openrouter")
             ei = self._ei_factory()
 
             return ProviderResponse(
@@ -165,7 +165,7 @@ class FakeAdapter(MistralAdapter):
         if capability is Capability.FORMALIZE:
             failure = self._formalize_failure
             if failure is not None:
-                raise ProviderFailure(failure, "mock formalize failure", provider="mistral")
+                raise ProviderFailure(failure, "mock formalize failure", provider="openrouter")
             if self._formalize_factory is None:
                 raise AssertionError("FakeAdapter.formalize_factory not configured")
 
@@ -180,7 +180,7 @@ class FakeAdapter(MistralAdapter):
         if capability is Capability.OPINION:
             failure = self._opinion_failure
             if failure is not None:
-                raise ProviderFailure(failure, "mock opinion failure", provider="mistral")
+                raise ProviderFailure(failure, "mock opinion failure", provider="openrouter")
             factory = self._opinion_factory or opinion_output
             prompt = payload.get("prompt") or ""
             mode = "pedagogical" if "Mode: pedagogical." in prompt else "consultative"

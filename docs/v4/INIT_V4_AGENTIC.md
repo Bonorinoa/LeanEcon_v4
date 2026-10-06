@@ -21,7 +21,7 @@ the read-first list, and you are initialized.
 | DL 50 | P1–P6 fidelity-property ontology is the labeling object; observed errors are measurements of property violations |
 | DL 51/D2 | Probe repair consumes the normal MAX_REVISION_ATTEMPTS=3 budget; no silent expansion |
 | DL 51/D3 | Consultative `opinion` side-door was parked **to v4 — it is now first-class v4 candidate work**, consultative only, NEVER authorized to emit ACCEPTED |
-| DL 51/D4 | Formalize pin `labs-leanstral-1-5`; swaps require dev-fixture A/B then sealed evidence |
+| DL 51/D4 | Formalize pin was `labs-leanstral-1-5`; **SUPERSEDED by DL 57** — live pin is `openrouter/free` |
 | DL 52 | Metric definitions frozen in `docs/v3.5/METRICS.md`; amendments go through DECISION_LOG |
 
 ## Read-first (in order)
@@ -44,9 +44,9 @@ the read-first list, and you are initialized.
 
 ## Open questions for the kickoff (G0 slice material)
 
-1. **Model posture urgency:** `labs-leanstral-1-5` free tier carries a
-   ~30-day deprecation clock from mid-August — v4 must either re-pin,
-   run the D4 A/B, or accept an expiry plan EARLY.
+1. **Model posture:** **RESOLVED 2026-10-06 (DL 57).** Mistral
+   unsubscribed. Live pin is OpenRouter `openrouter/free`. HuggingFace
+   inference remains a future complementary path, not a second adapter.
 2. **Opinion vs agentic-repair order:** which lands first in v4?
    (Opinion is pure-addition consultative surface; repair extends the
    Phase 2 mechanism with tool use.)

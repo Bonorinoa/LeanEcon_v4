@@ -28,7 +28,7 @@ Core). The diagram below is the Core-era model.
 ┌──────────────────┐   context   ┌──────────────┐            ┌────────────────────┐
 │ GLOSSARY REGISTRY│◀────────────┤ formalization│◀─accepted─┤  review (CTO)      │
 │ meaning, aliases,│             │ (agent:      │   EI      │  EI + mapping      │
-│ status ladder    │             │  labs-leanstral)          │  report review     │
+│ status ladder    │             │  openrouter/free)         │  report review     │
 └──────────────────┘             └──────────────┘            └────────────────────┘
                                          │                          ▲
               EI candidate (schema-valid)│                          │ review record
@@ -36,7 +36,7 @@ Core). The diagram below is the Core-era model.
         ┌────────────┐   interpret  ┌──────────────┐   validate   ┌──────────────┐
  claim  │  ingest    │─────────────▶│interpretation│─────────────▶│REVIEW_REQUIRED│
  ─────▶ │ (DRAFT)    │              │ (agent:      │              └──────────────┘
-        └────────────┘              │  mistral-medium-3-5)              │
+        └────────────┘              │  openrouter/free)              │
               │                     └──────────────┘                    │ ACCEPTED / REJECTED
               ▼                                                         ▼
         ┌──────────────────────────────────────────────────────────────────┐

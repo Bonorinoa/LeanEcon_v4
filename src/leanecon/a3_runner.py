@@ -38,7 +38,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from leanecon.adapters.mistral import MVP_MODEL_MAP, MistralAdapter
+from leanecon.adapters.openrouter import MVP_MODEL_MAP, OpenRouterAdapter
 from leanecon.bundle import build_bundle, validate_bundle
 from leanecon.claim_store import (
     DEFAULT_ROOT,
@@ -265,7 +265,7 @@ def cmd_ingest(args, store: ArtifactStore) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _make_adapter(run_id: str, log: EventLog) -> MistralAdapter:
+def _make_adapter(run_id: str, log: EventLog) -> OpenRouterAdapter:
     def emit_blocked(decision, capability, run_id, claim_id):
         _emit(
             log,
@@ -282,7 +282,7 @@ def _make_adapter(run_id: str, log: EventLog) -> MistralAdapter:
             ),
         )
 
-    return MistralAdapter(emit_event=emit_blocked)
+    return OpenRouterAdapter(emit_event=emit_blocked)
 
 
 def interpret_claim(

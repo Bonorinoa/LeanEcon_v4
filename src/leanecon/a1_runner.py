@@ -24,7 +24,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from leanecon import lean_probe
-from leanecon.adapters.mistral import MVP_MODEL_MAP, MistralAdapter
+from leanecon.adapters.openrouter import MVP_MODEL_MAP, OpenRouterAdapter
 from leanecon.events import (
     EVENT_DIAGNOSTIC_RESULT,
     EVENT_HEALTH_CHECK,
@@ -141,7 +141,7 @@ def probe_c9(run: A1Run) -> None:
 def probe_c4_c5_c6(run: A1Run) -> None:
     """Live probes for criteria 4–6. Requires --live; synthetic PUBLIC
     payloads only. No silent fallback: failures are typed and recorded."""
-    adapter = MistralAdapter(
+    adapter = OpenRouterAdapter(
         emit_event=lambda decision, cap, run_id, claim_id: run.events.append(
             adapter.emit_blocked_event(decision, cap, run_id, claim_id)
         )
@@ -192,8 +192,8 @@ def probe_c4_c5_c6(run: A1Run) -> None:
         meta = response.metadata
         has_metadata = all(
             (
-                meta.model == model,
-                meta.provider == "mistral",
+                isinstance(meta.model, str) and meta.model,
+                meta.provider == adapter.provider_name,
                 meta.latency_ms is not None,
             )
         )
@@ -251,7 +251,9 @@ def probe_c10(run: A1Run) -> None:
     def malformed(request, api_key, timeout_s):
         return {"no": "choices"}
 
-    adapter = MistralAdapter(transport=malformed, api_key_env=MistralAdapter.credential_env_name)
+    adapter = OpenRouterAdapter(
+        transport=malformed, api_key_env=OpenRouterAdapter.credential_env_name
+    )
     try:
         adapter.request(
             capability=Capability.INTERPRET,
