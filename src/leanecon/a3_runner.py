@@ -343,6 +343,20 @@ def interpret_claim(
         )
         return "FAILED", None
 
+    # Provider provenance (DL 57): bind which provider/model produced this
+    # interpretation, mirroring the formalize candidate contract. The EI
+    # schema's nested `provenance` object carries no additionalProperties
+    # restriction, so these fields validate and flow into the accepted-EI
+    # digest. Interpreted content is a meaning hypothesis; the model is
+    # recorded so the audit trail can name it.
+    meta = response.metadata
+    provenance = dict(candidate.get("provenance") or {})
+    provenance.setdefault("capability", "interpret")
+    provenance["provider"] = meta.provider
+    provenance["model"] = meta.model
+    provenance["request_id"] = meta.request_id
+    candidate["provenance"] = provenance
+
     problems = validate_ei_candidate(candidate)
     if problems:
         _state_event(
@@ -367,7 +381,13 @@ def interpret_claim(
         "INTERPRETED",
         "system",
         "a3-interpret",
-        detail={"ei_rev": ei_artifact["revision"], "ei_digest": ei_artifact["digest"][:16]},
+        detail={
+            "ei_rev": ei_artifact["revision"],
+            "ei_digest": ei_artifact["digest"][:16],
+            "provider": meta.provider,
+            "model": meta.model,
+            "request_id": meta.request_id,
+        },
     )
     _state_event(
         log,
