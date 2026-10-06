@@ -1,0 +1,192 @@
+{
+  "claim_id": "orfree-A",
+  "digest": "544904ad40cd745dce6364234899638139a8f5aece34457512f189c1c7110216",
+  "gaps": [
+    {
+      "classification": "genuinely_missing",
+      "ei_element_id": "assumption:0",
+      "ei_element_kind": "assumption",
+      "reason": "missing mapping row"
+    },
+    {
+      "classification": "genuinely_missing",
+      "ei_element_id": "quantifier:0",
+      "ei_element_kind": "quantifier",
+      "reason": "missing mapping row"
+    },
+    {
+      "classification": "genuinely_missing",
+      "ei_element_id": "definition:0",
+      "ei_element_kind": "definition",
+      "reason": "missing mapping row"
+    },
+    {
+      "classification": "genuinely_missing",
+      "ei_element_id": "definition:1",
+      "ei_element_kind": "definition",
+      "reason": "missing mapping row"
+    },
+    {
+      "classification": "genuinely_missing",
+      "ei_element_id": "definition:2",
+      "ei_element_kind": "definition",
+      "reason": "missing mapping row"
+    }
+  ],
+  "imports": [
+    "Mathlib"
+  ],
+  "interpretation_digest": "74edee2fe74d0a86ac742806a2c493821d731a89b12bf4adc451b60a2bde99da",
+  "mapping_report": [
+    {
+      "ei_element_id": "c",
+      "ei_element_kind": "object",
+      "lean_identifier": "c",
+      "mapping_kind": "local_definition",
+      "note": "consumer agent, parameter of theorem",
+      "provenance": "direct_semantic_extraction",
+      "status": "mapped"
+    },
+    {
+      "ei_element_id": "B",
+      "ei_element_kind": "object",
+      "lean_identifier": "c.budgetSet",
+      "mapping_kind": "local_definition",
+      "note": "original budget set, field of Consumer",
+      "provenance": "direct_semantic_extraction",
+      "status": "mapped"
+    },
+    {
+      "ei_element_id": "B_prime",
+      "ei_element_kind": "object",
+      "lean_identifier": "B'",
+      "mapping_kind": "local_definition",
+      "note": "expanded budget set, parameter of theorem",
+      "provenance": "direct_semantic_extraction",
+      "status": "mapped"
+    },
+    {
+      "ei_element_id": "succ",
+      "ei_element_kind": "object",
+      "lean_identifier": "c.utility",
+      "mapping_kind": "local_definition",
+      "note": "preferences represented by utility function",
+      "provenance": "direct_semantic_extraction",
+      "status": "mapped"
+    },
+    {
+      "ei_element_id": "A",
+      "ei_element_kind": "object",
+      "lean_identifier": "c.utility '' c.budgetSet",
+      "mapping_kind": "local_definition",
+      "note": "attainable set defined as image of budget set under utility",
+      "provenance": "direct_semantic_extraction",
+      "status": "mapped"
+    },
+    {
+      "ei_element_id": "budget_set",
+      "ei_element_kind": "definition",
+      "lean_identifier": "Consumer.budgetSet",
+      "mapping_kind": "local_definition",
+      "note": "field of Consumer structure",
+      "provenance": "direct_semantic_extraction",
+      "status": "mapped"
+    },
+    {
+      "ei_element_id": "preferences",
+      "ei_element_kind": "definition",
+      "lean_identifier": "c.utility",
+      "mapping_kind": "local_definition",
+      "note": "preferences represented by utility function; relation not formalized",
+      "provenance": "direct_semantic_extraction",
+      "status": "mapped"
+    },
+    {
+      "ei_element_id": "attainable_set",
+      "ei_element_kind": "definition",
+      "lean_identifier": "c.utility '' c.budgetSet",
+      "mapping_kind": "local_definition",
+      "note": "defined as set of utility levels attainable from budget set",
+      "provenance": "direct_semantic_extraction",
+      "status": "mapped"
+    },
+    {
+      "ei_element_id": "assumption:1",
+      "ei_element_kind": "assumption",
+      "lean_identifier": "h",
+      "mapping_kind": "local_definition",
+      "note": "budget set expansion expressed as c.budgetSet \u2286 B'",
+      "provenance": "direct_semantic_extraction",
+      "status": "mapped"
+    },
+    {
+      "ei_element_id": "assumption:2",
+      "ei_element_kind": "assumption",
+      "lean_identifier": "c.utility",
+      "mapping_kind": "local_definition",
+      "note": "preferences unchanged: same utility function used",
+      "provenance": "direct_semantic_extraction",
+      "status": "mapped"
+    },
+    {
+      "ei_element_id": "assumption:3",
+      "ei_element_kind": "assumption",
+      "lean_identifier": "c.utility '' c.budgetSet",
+      "mapping_kind": "local_definition",
+      "note": "attainable set defined as image, which is monotone in budget set",
+      "provenance": "direct_semantic_extraction",
+      "status": "mapped"
+    },
+    {
+      "ei_element_id": "quantifier:1",
+      "ei_element_kind": "quantifier",
+      "lean_identifier": "\u2200 (c : Consumer \u03b1) (B' : Finset \u03b1), ...",
+      "mapping_kind": "local_definition",
+      "note": "universal quantification over consumer and expanded budget set",
+      "provenance": "direct_semantic_extraction",
+      "status": "mapped"
+    },
+    {
+      "ei_element_id": "conclusion",
+      "ei_element_kind": "conclusion",
+      "lean_identifier": "c.utility '' c.budgetSet \u2286 c.utility '' B'",
+      "mapping_kind": "local_definition",
+      "note": "the new attainable set contains the old one",
+      "provenance": "direct_semantic_extraction",
+      "status": "mapped"
+    }
+  ],
+  "provenance": {
+    "capability": "formalize",
+    "model": "dots-studio/dots-3-note-preview:free",
+    "request_id": "gen-1791310879-XTKn9q1qxUFR9ltBh1qI"
+  },
+  "revision": 1,
+  "revision_attempts": 2,
+  "revision_history": [
+    {
+      "draft": "",
+      "probe_compiles": null,
+      "probe_stderr": "",
+      "static_problems": [
+        "provider request error (HTTP 404)"
+      ]
+    },
+    {
+      "draft": "import Mathlib\n\nnamespace A3Scaffolding.orfree_A\n\nstructure Consumer (\u03b1 : Type*) where\n  budgetSet : Finset \u03b1\n  utility : \u03b1 \u2192 \u211d\n\ntheorem orfree_A {\u03b1 : Type*} (c : Consumer \u03b1) (B' : Finset \u03b1) (h : c.budgetSet \u2286 B') : c.utility '' c.budgetSet \u2286 c.utility '' B'\n\nend A3Scaffolding.orfree_A",
+      "probe_compiles": true,
+      "probe_stderr": "/Users/bonorinoa/Desktop/leanecon_v4_work/lean_workspace/.a3-candidates/probe/probe_1791311086.lean:10:6: warning: The namespace `orfree_A` is duplicated in the declaration `A3Scaffolding.orfree_A.orfree_A`.\n\nNote: This linter can be disabled with `set_option linter.dupNamespace false`",
+      "static_problems": []
+    }
+  ],
+  "statement_probe": {
+    "compiles": true,
+    "exit_code": 0,
+    "stderr_tail": "/Users/bonorinoa/Desktop/leanecon_v4_work/lean_workspace/.a3-candidates/probe/probe_1791311086.lean:10:6: warning: The namespace `orfree_A` is duplicated in the declaration `A3Scaffolding.orfree_A.orfree_A`.\n\nNote: This linter can be disabled with `set_option linter.dupNamespace false`"
+  },
+  "statement_text": "import Mathlib\n\nnamespace A3Scaffolding.orfree_A\n\nstructure Consumer (\u03b1 : Type*) where\n  budgetSet : Finset \u03b1\n  utility : \u03b1 \u2192 \u211d\n\ntheorem orfree_A {\u03b1 : Type*} (c : Consumer \u03b1) (B' : Finset \u03b1) (h : c.budgetSet \u2286 B') : c.utility '' c.budgetSet \u2286 c.utility '' B'\n\nend A3Scaffolding.orfree_A",
+  "status": "current",
+  "stored_at": "2026-10-06T18:24:55Z",
+  "target_theorem": "orfree_A",
+  "vacuity_warning": null
+}
