@@ -1,0 +1,11 @@
+{
+  "_drafting_guide": "Fill for ONE claim, then load via: scripts_local/a3_run.py formalize --claim-id <id> --from-file <this file>. D1 RULES: a row with mapping_kind 'core' MUST carry a fully-qualified LeanEcon.Core.<Area>.<name> identifier (e.g. LeanEcon.Core.Constraints.budgetSetEndowment) — regex ^LeanEcon\\.Core\\.[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$. Bare hypothesis names (hu, hmax, hclear) and concept labels (market_clearing) are NEVER core: use local_definition (hypotheses/binders) or glossary_term (concepts). Put each FQ Core ref on its own definition:N row. Every material EI element needs a row with the accepted EI rev-2 id scheme (objects by id; others kind:index: assumption:N, quantifier:N, definition:N, conclusion, solution_concept). Interpreter-added conditions NOT in the CTO-approved source text: mark status 'unmapped' with a note (they become real gaps for gap-ack — honest).",
+  "statement_text": "import LeanEcon.Core.<Area>\nimport Mathlib.Data.Real.Basic\nimport Mathlib.Tactic\n\nopen LeanEcon.Core.<Area>\n\ntheorem <target> {Goods : Type} [Fintype Goods] ... : <conclusion>",
+  "target_theorem": "<target>",
+  "mapping_report": [
+    {"ei_element_id": "<object-id>", "ei_element_kind": "object", "lean_identifier": "<name>", "mapping_kind": "local_definition", "note": "", "status": "mapped", "provenance": "reviewer_authored_recovery"},
+    {"ei_element_id": "assumption:0", "ei_element_kind": "assumption", "lean_identifier": "Fintype Goods", "mapping_kind": "mathlib", "note": "finite goods", "status": "mapped", "provenance": "reviewer_authored_recovery"},
+    {"ei_element_id": "definition:0", "ei_element_kind": "definition", "lean_identifier": "LeanEcon.Core.<Area>.<decl>", "mapping_kind": "core", "note": "", "status": "mapped", "provenance": "reviewer_authored_recovery"},
+    {"ei_element_id": "conclusion", "ei_element_kind": "conclusion", "lean_identifier": "<conclusion-expr>", "mapping_kind": "mathlib", "note": "", "status": "mapped", "provenance": "reviewer_authored_recovery"}
+  ]
+}
